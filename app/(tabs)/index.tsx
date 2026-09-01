@@ -1,4 +1,4 @@
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCallback, useState } from "react";
 import {
@@ -16,6 +16,7 @@ type Workout = {
 };
 
 export default function WorkoutsScreen() {
+  const router = useRouter();
   const db = useSQLiteContext();
   const [workouts, setWorkouts] = useState<Workout[]>([]);
 
@@ -53,7 +54,10 @@ export default function WorkoutsScreen() {
         }
       />
 
-      <TouchableOpacity style={styles.addButton}>
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => router.push("/workout/new")}
+      >
         <Text style={styles.addButtonText}>+ Nouvel entrainement</Text>
       </TouchableOpacity>
     </View>
