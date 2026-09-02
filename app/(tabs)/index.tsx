@@ -60,6 +60,11 @@ export default function WorkoutsScreen() {
       >
         <Text style={styles.addButtonText}>+ Nouvel entrainement</Text>
       </TouchableOpacity>
+      <TouchableOpacity onPress={() => router.push("/debug")}>
+        <Text style={{ textAlign: "center", color: "#888", marginTop: 12 }}>
+          Debug DB
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
