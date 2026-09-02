@@ -2,7 +2,7 @@ import {
   ExercisePickerModal,
   ExerciseRow,
 } from "@/components/exercise-picker-modal";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useRef, useState } from "react";
 import {
@@ -315,91 +315,96 @@ export default function NewWorkoutScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
+    <>
+      <Stack.Screen options={{ title: "Nouvel entrainement" }} />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Text style={styles.label}>Nom de l'entrainement</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={setName}
-          placeholder="Ex: Push day"
-          placeholderTextColor="#999"
-        />
-        <Text style={styles.label}>Description (optionnel)</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={description}
-          onChangeText={setDescription}
-          placeholder="Notes, objectifs, contexte..."
-          placeholderTextColor="#999"
-          multiline
-        />
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <Text style={styles.label}>Nom de l'entrainement</Text>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="Ex: Push day"
+            placeholderTextColor="#999"
+          />
+          <Text style={styles.label}>Description (optionnel)</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Notes, objectifs, contexte..."
+            placeholderTextColor="#999"
+            multiline
+          />
 
-        {blocks.map((block, index) =>
-          block.type === "exercise" ? (
-            <ExerciseBlockCard
-              key={block.id}
-              block={block}
-              index={index}
-              onRemove={() => removeBlock(block.id)}
-              onMoveUp={() => moveBlock(block.id, -1)}
-              onMoveDown={() => moveBlock(block.id, 1)}
-              onUpdateRest={(value) =>
-                updateBlock(block.id, { restBetweenSets: value })
-              }
-              onAddSet={() => addSet(block.id)}
-              onRemoveSet={(setId) => removeSet(block.id, setId)}
-              onUpdateSetTarget={(setId, value) =>
-                updateSetTarget(block.id, setId, value)
-              }
-            />
-          ) : (
-            <RestBlockCard
-              key={block.id}
-              block={block}
-              index={index}
-              onRemove={() => removeBlock(block.id)}
-              onMoveUp={() => moveBlock(block.id, -1)}
-              onMoveDown={() => moveBlock(block.id, 1)}
-              onUpdateDuration={(value) =>
-                updateBlock(block.id, { restSeconds: value })
-              }
-            />
-          ),
-        )}
+          {blocks.map((block, index) =>
+            block.type === "exercise" ? (
+              <ExerciseBlockCard
+                key={block.id}
+                block={block}
+                index={index}
+                onRemove={() => removeBlock(block.id)}
+                onMoveUp={() => moveBlock(block.id, -1)}
+                onMoveDown={() => moveBlock(block.id, 1)}
+                onUpdateRest={(value) =>
+                  updateBlock(block.id, { restBetweenSets: value })
+                }
+                onAddSet={() => addSet(block.id)}
+                onRemoveSet={(setId) => removeSet(block.id, setId)}
+                onUpdateSetTarget={(setId, value) =>
+                  updateSetTarget(block.id, setId, value)
+                }
+              />
+            ) : (
+              <RestBlockCard
+                key={block.id}
+                block={block}
+                index={index}
+                onRemove={() => removeBlock(block.id)}
+                onMoveUp={() => moveBlock(block.id, -1)}
+                onMoveDown={() => moveBlock(block.id, 1)}
+                onUpdateDuration={(value) =>
+                  updateBlock(block.id, { restSeconds: value })
+                }
+              />
+            ),
+          )}
 
-        <View style={styles.addBlockRow}>
-          <TouchableOpacity
-            style={styles.addBlockButton}
-            onPress={openExercisePicker}
-          >
-            <Text style={styles.addBlockButtonText}>+ Exercice</Text>
+          <View style={styles.addBlockRow}>
+            <TouchableOpacity
+              style={styles.addBlockButton}
+              onPress={openExercisePicker}
+            >
+              <Text style={styles.addBlockButtonText}>+ Exercice</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.addBlockButton}
+              onPress={addRestBlock}
+            >
+              <Text style={styles.addBlockButtonText}>+ Repos</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+            <Text style={styles.saveButtonText}>
+              Enregistrer l'entrainement
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.addBlockButton}
-            onPress={addRestBlock}
-          >
-            <Text style={styles.addBlockButtonText}>+ Repos</Text>
-          </TouchableOpacity>
-        </View>
+        </ScrollView>
 
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Enregistrer l'entrainement</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      <ExercisePickerModal
-        visible={pickerVisible}
-        onClose={() => setPickerVisible(false)}
-        onSelectExercise={addExerciseBlock}
-      />
-    </KeyboardAvoidingView>
+        <ExercisePickerModal
+          visible={pickerVisible}
+          onClose={() => setPickerVisible(false)}
+          onSelectExercise={addExerciseBlock}
+        />
+      </KeyboardAvoidingView>
+    </>
   );
 }
 

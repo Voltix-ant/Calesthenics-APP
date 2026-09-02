@@ -1,4 +1,9 @@
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import {
+    Stack,
+    useFocusEffect,
+    useLocalSearchParams,
+    useRouter,
+} from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCallback, useState } from "react";
 import {
@@ -123,53 +128,56 @@ export default function WorkoutDetailScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>{workout.name}</Text>
-      {workout.description && (
-        <Text style={styles.description}>{workout.description}</Text>
-      )}
+    <>
+      <Stack.Screen options={{ title: workout.name }} />
+      <ScrollView style={styles.container}>
+        <Text style={styles.title}>{workout.name}</Text>
+        {workout.description && (
+          <Text style={styles.description}>{workout.description}</Text>
+        )}
 
-      <TouchableOpacity style={styles.launchButton}>
-        <Text style={styles.launchButtonText}>Lancer l'entrainement</Text>
-      </TouchableOpacity>
-
-      <View style={styles.blocksSection}>
-        {blocks.map((block) => (
-          <View
-            key={block.block_id}
-            style={[styles.card, block.type === "rest" && styles.restCard]}
-          >
-            {block.type === "exercise" ? (
-              <>
-                <Text style={styles.cardTitle}>{block.exercise_name}</Text>
-                <Text style={styles.cardSubtitle}>
-                  {(setsByBlock[block.block_id] ?? [])
-                    .map((s) => s.target_value)
-                    .join(" - ")}{" "}
-                  {block.exercise_type === "reps" ? "reps" : "sec"}
-                </Text>
-                <Text style={styles.cardMeta}>
-                  Repos entre séries : {block.rest_between_sets} sec
-                </Text>
-              </>
-            ) : (
-              <Text style={styles.cardTitle}>
-                Repos : {block.rest_seconds} sec
-              </Text>
-            )}
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.actionsSection}>
-        <TouchableOpacity style={styles.editButton}>
-          <Text style={styles.editButtonText}>Modifier</Text>
+        <TouchableOpacity style={styles.launchButton}>
+          <Text style={styles.launchButtonText}>Lancer l'entrainement</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-          <Text style={styles.deleteButtonText}>Supprimer</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+
+        <View style={styles.blocksSection}>
+          {blocks.map((block) => (
+            <View
+              key={block.block_id}
+              style={[styles.card, block.type === "rest" && styles.restCard]}
+            >
+              {block.type === "exercise" ? (
+                <>
+                  <Text style={styles.cardTitle}>{block.exercise_name}</Text>
+                  <Text style={styles.cardSubtitle}>
+                    {(setsByBlock[block.block_id] ?? [])
+                      .map((s) => s.target_value)
+                      .join(" - ")}{" "}
+                    {block.exercise_type === "reps" ? "reps" : "sec"}
+                  </Text>
+                  <Text style={styles.cardMeta}>
+                    Repos entre séries : {block.rest_between_sets} sec
+                  </Text>
+                </>
+              ) : (
+                <Text style={styles.cardTitle}>
+                  Repos : {block.rest_seconds} sec
+                </Text>
+              )}
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.actionsSection}>
+          <TouchableOpacity style={styles.editButton}>
+            <Text style={styles.editButtonText}>Modifier</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
+            <Text style={styles.deleteButtonText}>Supprimer</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </>
   );
 }
 
