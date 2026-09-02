@@ -43,9 +43,17 @@ export default function WorkoutsScreen() {
         data={workouts}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
-          <View style={styles.workoutItem}>
+          <TouchableOpacity
+            style={styles.workoutItem}
+            onPress={() =>
+              router.push({
+                pathname: "/workout/[id]",
+                params: { id: item.id.toString() },
+              })
+            }
+          >
             <Text style={styles.workoutName}>{item.name}</Text>
-          </View>
+          </TouchableOpacity>
         )}
         ListEmptyComponent={
           <Text style={styles.emptyText}>
