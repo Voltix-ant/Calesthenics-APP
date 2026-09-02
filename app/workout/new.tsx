@@ -177,6 +177,7 @@ export default function NewWorkoutScreen() {
   const db = useSQLiteContext();
 
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [blocks, setBlocks] = useState<BlockDraft[]>([]);
 
   // Modal de recherche/création d'exercice
@@ -276,8 +277,9 @@ export default function NewWorkoutScreen() {
 
     await db.withTransactionAsync(async () => {
       const workoutResult = await db.runAsync(
-        "INSERT INTO workouts (name) VALUES (?)",
+        "INSERT INTO workouts (name, description) VALUES (?, ?)",
         name.trim(),
+        description.trim() || null,
       );
       const workoutId = workoutResult.lastInsertRowId;
 
@@ -328,6 +330,15 @@ export default function NewWorkoutScreen() {
           onChangeText={setName}
           placeholder="Ex: Push day"
           placeholderTextColor="#999"
+        />
+        <Text style={styles.label}>Description (optionnel)</Text>
+        <TextInput
+          style={[styles.input, styles.textArea]}
+          value={description}
+          onChangeText={setDescription}
+          placeholder="Notes, objectifs, contexte..."
+          placeholderTextColor="#999"
+          multiline
         />
 
         {blocks.map((block, index) =>
@@ -482,4 +493,8 @@ const styles = StyleSheet.create({
   },
   typeToggleActive: { borderColor: "#000", backgroundColor: "#eee" },
   cancelText: { textAlign: "center", color: "#888", marginTop: 12 },
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
 });

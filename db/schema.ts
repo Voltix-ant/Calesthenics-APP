@@ -50,4 +50,14 @@ export const initializeDatabase = async (db: SQLiteDatabase) => {
       actual_value INTEGER NOT NULL
     );
   `);
+
+  // Migration : ajoute la colonne "description" si elle n'existe pas encore
+  // (nécessaire car CREATE TABLE IF NOT EXISTS n'a aucun effet sur les tables déjà créées)
+  const columns = await db.getAllAsync<{ name: string }>(
+    `PRAGMA table_info(workouts)`,
+  );
+  const hasDescription = columns.some((col) => col.name === "description");
+  if (!hasDescription) {
+    await db.execAsync(`ALTER TABLE workouts ADD COLUMN description TEXT;`);
+  }
 };
