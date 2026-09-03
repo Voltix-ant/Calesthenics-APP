@@ -15,6 +15,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // ---- Types (exportés pour que l'écran d'édition puisse construire des BlockDraft) ----
 
@@ -185,6 +186,7 @@ export function WorkoutForm({
   initialDescription = "",
   initialBlocks = [],
 }: WorkoutFormProps) {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const db = useSQLiteContext();
 
@@ -348,7 +350,10 @@ export function WorkoutForm({
     >
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + 32 },
+        ]}
       >
         <Text style={styles.label}>Nom de l'entrainement</Text>
         <TextInput

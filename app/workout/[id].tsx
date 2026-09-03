@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type WorkoutRow = {
   id: number;
@@ -42,6 +43,7 @@ type SetRow = {
 export default function WorkoutDetailScreen() {
   // useLocalSearchParams() retourne toujours des chaînes de texte (les URL sont du texte),
   // donc il faut convertir en nombre pour l'utiliser dans les requêtes SQL
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const workoutId = parseInt(id, 10);
 
@@ -130,7 +132,10 @@ export default function WorkoutDetailScreen() {
   return (
     <>
       <Stack.Screen options={{ title: workout.name }} />
-      <ScrollView style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+      >
         <Text style={styles.title}>{workout.name}</Text>
         {workout.description && (
           <Text style={styles.description}>{workout.description}</Text>

@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Workout = {
   id: number;
@@ -16,6 +17,7 @@ type Workout = {
 };
 
 export default function WorkoutsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const db = useSQLiteContext();
   const [workouts, setWorkouts] = useState<Workout[]>([]);
@@ -36,7 +38,7 @@ export default function WorkoutsScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
       <Text style={styles.title}>Mes entrainements</Text>
 
       <FlatList
@@ -86,6 +88,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     marginBottom: 16,
+    color: "#fff",
   },
   workoutItem: {
     padding: 16,
