@@ -219,6 +219,37 @@ function ReviewPhaseView({
   );
 }
 
+function SessionTopBar({
+  elapsedSeconds,
+  progressPercent,
+  onAbort,
+  topInset,
+}: {
+  elapsedSeconds: number;
+  progressPercent: number;
+  onAbort: () => void;
+  topInset: number;
+}) {
+  return (
+    <View style={[styles.topBar, { paddingTop: topInset + 8 }]}>
+      <View style={styles.topBarRow}>
+        <Text style={styles.topBarTimer}>{formatDuration(elapsedSeconds)}</Text>
+        <TouchableOpacity onPress={onAbort} hitSlop={12}>
+          <Text style={styles.closeButton}>✕</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.progressRow}>
+        <View style={styles.progressTrack}>
+          <View
+            style={[styles.progressFill, { width: `${progressPercent}%` }]}
+          />
+        </View>
+        <Text style={styles.progressLabel}>{progressPercent}%</Text>
+      </View>
+    </View>
+  );
+}
+
 // ---- Écran principal ----
 
 export default function SessionScreen() {
@@ -247,6 +278,8 @@ export default function SessionScreen() {
 
   const [reviewValue, setReviewValue] = useState(0);
   const [restRemaining, setRestRemaining] = useState(0);
+
+  const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
 
   // ---- Chargement + aplatissement de l'entrainement ----
   useEffect(() => {
@@ -372,6 +405,15 @@ export default function SessionScreen() {
     return () => clearTimeout(timeout);
   }, [screenPhase, restRemaining, currentIndex, steps.length]);
 
+  // ---- Chrono global de l'entrainement ----
+  useEffect(() => {
+    const interval = setInterval(
+      () => setSessionElapsedSeconds((v) => v + 1),
+      1000,
+    );
+    return () => clearInterval(interval);
+  }, []); // tableau de dépendances vide = s'exécute une seule fois, au montage
+
   const handleStartTimer = () => {
     setExercisePhase("countdown");
     setCountdownValue(5);
@@ -397,9 +439,7 @@ export default function SessionScreen() {
     setCountdownValue(5);
   };
 
-  const handleFinishSession = async () => {
-    const finalValues = { ...performedValues, [currentIndex]: reviewValue };
-
+  const saveSession = async (finalValues: Record<number, number>) => {
     await db.withTransactionAsync(async () => {
       const sessionResult = await db.runAsync(
         "INSERT INTO sessions (workout_id) VALUES (?)",
@@ -419,10 +459,42 @@ export default function SessionScreen() {
         );
       }
     });
+  };
 
+  const handleFinishSession = async () => {
+    const finalValues = { ...performedValues, [currentIndex]: reviewValue };
+    await saveSession(finalValues);
     Alert.alert("Séance enregistrée !", "Bien joué 💪", [
       { text: "OK", onPress: () => router.back() },
     ]);
+  };
+
+  const handleAbort = () => {
+    Alert.alert(
+      "Arrêter l'entrainement ?",
+      "Les séries restantes seront enregistrées avec les valeurs par défaut (dernière performance ou objectif si première fois).",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Arrêter et enregistrer",
+          style: "destructive",
+          onPress: async () => {
+            const finalValues: Record<number, number> = {};
+            for (let i = 0; i < steps.length; i++) {
+              if (performedValues[i] !== undefined) {
+                finalValues[i] = performedValues[i]; // déjà réalisé et confirmé
+              } else if (i === currentIndex && screenPhase === "review") {
+                finalValues[i] = reviewValue; // en cours de revue, pas encore confirmé
+              } else {
+                finalValues[i] = steps[i].targetValue; // pas encore fait : objectif/dernière perf
+              }
+            }
+            await saveSession(finalValues);
+            router.back();
+          },
+        },
+      ],
+    );
   };
 
   if (loading) {
@@ -443,40 +515,93 @@ export default function SessionScreen() {
 
   const step = steps[currentIndex];
   const isLastStep = currentIndex === steps.length - 1;
+  const completedSteps =
+    screenPhase === "review" ? currentIndex + 1 : currentIndex;
+  const progressPercent =
+    steps.length > 0 ? Math.round((completedSteps / steps.length) * 100) : 0;
 
   return (
     <>
-      <Stack.Screen options={{ title: workoutName }} />
-      <View style={[styles.container, { paddingBottom: insets.bottom + 24 }]}>
-        {screenPhase === "exercise" ? (
-          <ExercisePhaseView
-            step={step}
-            exercisePhase={exercisePhase}
-            countdownValue={countdownValue}
-            elapsedSeconds={elapsedSeconds}
-            onStartTimer={handleStartTimer}
-            onFinishReps={handleFinishReps}
-            onFinishTimer={handleFinishTimer}
-          />
-        ) : (
-          <ReviewPhaseView
-            step={step}
-            reviewValue={reviewValue}
-            onChangeReviewValue={setReviewValue}
-            restRemaining={restRemaining}
-            isLastStep={isLastStep}
-            nextStep={isLastStep ? null : steps[currentIndex + 1]}
-            onContinue={proceedToNext}
-            onFinishSession={handleFinishSession}
-          />
-        )}
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.container}>
+        <SessionTopBar
+          elapsedSeconds={sessionElapsedSeconds}
+          progressPercent={progressPercent}
+          onAbort={handleAbort}
+          topInset={insets.top}
+        />
+
+        <View
+          style={[styles.phaseContainer, { paddingBottom: insets.bottom + 24 }]}
+        >
+          {screenPhase === "exercise" ? (
+            <ExercisePhaseView
+              step={step}
+              exercisePhase={exercisePhase}
+              countdownValue={countdownValue}
+              elapsedSeconds={elapsedSeconds}
+              onStartTimer={handleStartTimer}
+              onFinishReps={handleFinishReps}
+              onFinishTimer={handleFinishTimer}
+            />
+          ) : (
+            <ReviewPhaseView
+              step={step}
+              reviewValue={reviewValue}
+              onChangeReviewValue={setReviewValue}
+              restRemaining={restRemaining}
+              isLastStep={isLastStep}
+              nextStep={isLastStep ? null : steps[currentIndex + 1]}
+              onContinue={proceedToNext}
+              onFinishSession={handleFinishSession}
+            />
+          )}
+        </View>
       </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1, backgroundColor: "#fff" }, // (déjà existant, inchangé)
+  phaseContainer: { flex: 1 }, // nouveau : remplace l'ancien usage direct de "container" pour le contenu
+  topBar: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: "#fff",
+  },
+  topBarRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  topBarTimer: { fontSize: 16, fontWeight: "600", color: "#000" },
+  closeButton: { fontSize: 22, color: "#000" },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#000",
+    borderRadius: 3,
+  },
+  progressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  progressTrack: {
+    flex: 1, // prend tout l'espace restant à côté du texte, au lieu de toute la largeur
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#eee",
+    overflow: "hidden",
+  },
+
+  progressLabel: {
+    fontSize: 13,
+    color: "#666",
+    width: 36, // largeur fixe pour éviter que le texte "bouge" la barre quand le nombre change de taille (9% vs 100%)
+    textAlign: "right",
+  },
   centerContent: {
     flex: 1,
     justifyContent: "center",
