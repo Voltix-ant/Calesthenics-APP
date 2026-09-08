@@ -141,7 +141,15 @@ export default function WorkoutDetailScreen() {
           <Text style={styles.description}>{workout.description}</Text>
         )}
 
-        <TouchableOpacity style={styles.launchButton}>
+        <TouchableOpacity
+          style={styles.launchButton}
+          onPress={() =>
+            router.push({
+              pathname: "/session/[id]",
+              params: { id: workoutId.toString() },
+            })
+          }
+        >
           <Text style={styles.launchButtonText}>Lancer l'entrainement</Text>
         </TouchableOpacity>
 
@@ -183,7 +191,7 @@ export default function WorkoutDetailScreen() {
               })
             }
           >
-            <Text style={styles.editButtonText}>Modifier</Text>
+            <Text style={styles.editButtonText}>Dupliquer</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
             <Text style={styles.deleteButtonText}>Supprimer</Text>

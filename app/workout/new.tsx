@@ -5,7 +5,7 @@ export default function NewWorkoutScreen() {
   return (
     <>
       <Stack.Screen options={{ title: "Nouvel entrainement" }} />
-      <WorkoutForm mode="create" />
+      <WorkoutForm />
     </>
   );
 }

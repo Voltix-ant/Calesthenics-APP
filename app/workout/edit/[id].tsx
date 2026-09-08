@@ -24,13 +24,14 @@ type SetRow = {
   target_value: number;
 };
 
-export default function EditWorkoutScreen() {
+export default function DuplicateWorkoutScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const workoutId = parseInt(id, 10);
   const db = useSQLiteContext();
 
   const [loading, setLoading] = useState(true);
-  const [workout, setWorkout] = useState<WorkoutRow | null>(null);
+  const [sourceName, setSourceName] = useState("");
+  const [initialDescription, setInitialDescription] = useState("");
   const [initialBlocks, setInitialBlocks] = useState<BlockDraft[]>([]);
 
   useEffect(() => {
@@ -39,7 +40,9 @@ export default function EditWorkoutScreen() {
         "SELECT id, name, description FROM workouts WHERE id = ?",
         workoutId,
       );
-      setWorkout(workoutRow);
+      if (!workoutRow) return;
+      setSourceName(workoutRow.name);
+      setInitialDescription(workoutRow.description ?? "");
 
       const blockRows = await db.getAllAsync<BlockRow>(
         `SELECT
@@ -103,7 +106,7 @@ export default function EditWorkoutScreen() {
     load();
   }, [db, workoutId]);
 
-  if (loading || !workout) {
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <Text>Chargement...</Text>
@@ -113,13 +116,12 @@ export default function EditWorkoutScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: `Modifier "${workout.name}"` }} />
+      <Stack.Screen options={{ title: `Dupliquer "${sourceName}"` }} />
       <WorkoutForm
-        mode="edit"
-        workoutId={workoutId}
-        initialName={workout.name}
-        initialDescription={workout.description ?? ""}
+        initialName={`${sourceName} (2)`}
+        initialDescription={initialDescription}
         initialBlocks={initialBlocks}
+        submitLabel="Créer la copie"
       />
     </>
   );
