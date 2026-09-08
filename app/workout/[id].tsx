@@ -183,7 +183,7 @@ export default function WorkoutDetailScreen() {
               })
             }
           >
-            <Text style={styles.editButtonText}>Modifier</Text>
+            <Text style={styles.editButtonText}>Dupliquer</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
             <Text style={styles.deleteButtonText}>Supprimer</Text>

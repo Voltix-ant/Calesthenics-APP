@@ -1,19 +1,19 @@
 import {
-    ExercisePickerModal,
-    ExerciseRow,
+  ExercisePickerModal,
+  ExerciseRow,
 } from "@/components/exercise-picker-modal";
 import { useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useRef, useState } from "react";
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -172,19 +172,17 @@ function RestBlockCard({
 // ---- Le formulaire partagé création / édition ----
 
 type WorkoutFormProps = {
-  mode: "create" | "edit";
-  workoutId?: number; // requis en mode 'edit'
   initialName?: string;
   initialDescription?: string;
   initialBlocks?: BlockDraft[];
+  submitLabel?: string;
 };
 
 export function WorkoutForm({
-  mode,
-  workoutId,
   initialName = "",
   initialDescription = "",
   initialBlocks = [],
+  submitLabel = "Enregistrer l'entrainement",
 }: WorkoutFormProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -318,26 +316,12 @@ export function WorkoutForm({
     if (name.trim() === "" || blocks.length === 0) return;
 
     await db.withTransactionAsync(async () => {
-      if (mode === "create") {
-        const workoutResult = await db.runAsync(
-          "INSERT INTO workouts (name, description) VALUES (?, ?)",
-          name.trim(),
-          description.trim() || null,
-        );
-        await persistBlocks(workoutResult.lastInsertRowId);
-      } else {
-        await db.runAsync(
-          "UPDATE workouts SET name = ?, description = ? WHERE id = ?",
-          name.trim(),
-          description.trim() || null,
-          workoutId!,
-        );
-        await db.runAsync(
-          "DELETE FROM workout_blocks WHERE workout_id = ?",
-          workoutId!,
-        );
-        await persistBlocks(workoutId!);
-      }
+      const workoutResult = await db.runAsync(
+        "INSERT INTO workouts (name, description) VALUES (?, ?)",
+        name.trim(),
+        description.trim() || null,
+      );
+      await persistBlocks(workoutResult.lastInsertRowId);
     });
 
     router.back();
@@ -423,11 +407,7 @@ export function WorkoutForm({
         </View>
 
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>
-            {mode === "create"
-              ? "Enregistrer l'entrainement"
-              : "Enregistrer les modifications"}
-          </Text>
+          <Text style={styles.saveButtonText}>{submitLabel}</Text>
         </TouchableOpacity>
       </ScrollView>
 

@@ -45,19 +45,35 @@ export const initializeDatabase = async (db: SQLiteDatabase) => {
     CREATE TABLE IF NOT EXISTS session_performances (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-      block_id INTEGER NOT NULL REFERENCES workout_blocks(id),
+      exercise_id INTEGER NOT NULL REFERENCES exercises(id),
       set_number INTEGER NOT NULL,
       actual_value INTEGER NOT NULL
     );
   `);
 
-  // Migration : ajoute la colonne "description" si elle n'existe pas encore
-  // (nécessaire car CREATE TABLE IF NOT EXISTS n'a aucun effet sur les tables déjà créées)
-  const columns = await db.getAllAsync<{ name: string }>(
+  // Migration : ajoute "description" si elle n'existe pas encore
+  const workoutColumns = await db.getAllAsync<{ name: string }>(
     `PRAGMA table_info(workouts)`,
   );
-  const hasDescription = columns.some((col) => col.name === "description");
-  if (!hasDescription) {
+  if (!workoutColumns.some((col) => col.name === "description")) {
     await db.execAsync(`ALTER TABLE workouts ADD COLUMN description TEXT;`);
+  }
+
+  // Migration : session_performances doit référencer exercise_id + set_number, pas block_id
+  // (la table est garantie vide à ce stade, donc un DROP + recreate est sans risque)
+  const perfColumns = await db.getAllAsync<{ name: string }>(
+    `PRAGMA table_info(session_performances)`,
+  );
+  if (perfColumns.some((col) => col.name === "block_id")) {
+    await db.execAsync(`
+      DROP TABLE session_performances;
+      CREATE TABLE session_performances (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+        exercise_id INTEGER NOT NULL REFERENCES exercises(id),
+        set_number INTEGER NOT NULL,
+        actual_value INTEGER NOT NULL
+      );
+    `);
   }
 };
