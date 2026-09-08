@@ -470,6 +470,13 @@ export default function SessionScreen() {
   };
 
   const handleAbort = () => {
+    const hasAnyProgress = currentIndex > 0 || screenPhase === "review";
+
+    if (!hasAnyProgress) {
+      router.back();
+      return;
+    }
+
     Alert.alert(
       "Arrêter l'entrainement ?",
       "Les séries restantes seront enregistrées avec les valeurs par défaut (dernière performance ou objectif si première fois).",
@@ -482,11 +489,11 @@ export default function SessionScreen() {
             const finalValues: Record<number, number> = {};
             for (let i = 0; i < steps.length; i++) {
               if (performedValues[i] !== undefined) {
-                finalValues[i] = performedValues[i]; // déjà réalisé et confirmé
+                finalValues[i] = performedValues[i];
               } else if (i === currentIndex && screenPhase === "review") {
-                finalValues[i] = reviewValue; // en cours de revue, pas encore confirmé
+                finalValues[i] = reviewValue;
               } else {
-                finalValues[i] = steps[i].targetValue; // pas encore fait : objectif/dernière perf
+                finalValues[i] = steps[i].targetValue;
               }
             }
             await saveSession(finalValues);
