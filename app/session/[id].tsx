@@ -1,13 +1,15 @@
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useState } from "react";
 import {
-    Alert,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -222,11 +224,15 @@ function ReviewPhaseView({
 function SessionTopBar({
   elapsedSeconds,
   progressPercent,
+  soundEnabled,
+  onToggleSound,
   onAbort,
   topInset,
 }: {
   elapsedSeconds: number;
   progressPercent: number;
+  soundEnabled: boolean;
+  onToggleSound: () => void;
   onAbort: () => void;
   topInset: number;
 }) {
@@ -234,9 +240,18 @@ function SessionTopBar({
     <View style={[styles.topBar, { paddingTop: topInset + 8 }]}>
       <View style={styles.topBarRow}>
         <Text style={styles.topBarTimer}>{formatDuration(elapsedSeconds)}</Text>
-        <TouchableOpacity onPress={onAbort} hitSlop={12}>
-          <Text style={styles.closeButton}>✕</Text>
-        </TouchableOpacity>
+        <View style={styles.topBarActions}>
+          <TouchableOpacity onPress={onToggleSound} hitSlop={12}>
+            <IconSymbol
+              size={22}
+              name={soundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill"}
+              color="#000"
+            />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onAbort} hitSlop={12}>
+            <Text style={styles.closeButton}>✕</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       <View style={styles.progressRow}>
         <View style={styles.progressTrack}>
@@ -280,6 +295,38 @@ export default function SessionScreen() {
   const [restRemaining, setRestRemaining] = useState(0);
 
   const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
+
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
+  const countdownPlayer = useAudioPlayer(
+    require("../../assets/sounds/countdown-start.mp3"),
+  );
+  const countdownPlayerStatus = useAudioPlayerStatus(countdownPlayer);
+  const targetReachedPlayer = useAudioPlayer(
+    require("../../assets/sounds/target-reached.mp3"),
+  );
+  const restEndPlayer = useAudioPlayer(
+    require("../../assets/sounds/rest-end.mp3"),
+  );
+
+  const playCountdownStart = () => {
+    if (!soundEnabled) return;
+    if (!countdownPlayerStatus.isLoaded) return; // pas encore prêt, on ignore silencieusement
+    countdownPlayer.seekTo(0);
+    countdownPlayer.play();
+  };
+
+  const playTargetReached = () => {
+    if (!soundEnabled) return;
+    targetReachedPlayer.seekTo(0);
+    targetReachedPlayer.play();
+  };
+
+  const playRestEnd = () => {
+    if (!soundEnabled) return;
+    restEndPlayer.seekTo(0);
+    restEndPlayer.play();
+  };
 
   // ---- Chargement + aplatissement de l'entrainement ----
   useEffect(() => {
@@ -396,6 +443,13 @@ export default function SessionScreen() {
     return () => clearInterval(interval);
   }, [exercisePhase]);
 
+  useEffect(() => {
+    if (exercisePhase !== "timing") return;
+    if (elapsedSeconds === step.targetValue) {
+      playTargetReached();
+    }
+  }, [elapsedSeconds]);
+
   // ---- Décompte du repos sur l'écran de revue ----
   useEffect(() => {
     if (screenPhase !== "review") return;
@@ -404,6 +458,14 @@ export default function SessionScreen() {
     const timeout = setTimeout(() => setRestRemaining((v) => v - 1), 1000);
     return () => clearTimeout(timeout);
   }, [screenPhase, restRemaining, currentIndex, steps.length]);
+
+  useEffect(() => {
+    if (screenPhase !== "review") return;
+    if (isLastStep) return;
+    if (step.restAfterSeconds > 0 && restRemaining === 0) {
+      playRestEnd();
+    }
+  }, [restRemaining]);
 
   // ---- Chrono global de l'entrainement ----
   useEffect(() => {
@@ -415,6 +477,7 @@ export default function SessionScreen() {
   }, []); // tableau de dépendances vide = s'exécute une seule fois, au montage
 
   const handleStartTimer = () => {
+    playCountdownStart();
     setExercisePhase("countdown");
     setCountdownValue(5);
   };
@@ -534,6 +597,8 @@ export default function SessionScreen() {
         <SessionTopBar
           elapsedSeconds={sessionElapsedSeconds}
           progressPercent={progressPercent}
+          soundEnabled={soundEnabled}
+          onToggleSound={() => setSoundEnabled((v) => !v)}
           onAbort={handleAbort}
           topInset={insets.top}
         />
@@ -670,4 +735,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   doneText: { fontSize: 22, fontWeight: "700", marginBottom: 24 },
+  topBarActions: { flexDirection: "row", alignItems: "center", gap: 16 },
 });
