@@ -1,5 +1,9 @@
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
+import {
+  setAudioModeAsync,
+  useAudioPlayer,
+  useAudioPlayerStatus,
+} from "expo-audio";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useState } from "react";
@@ -423,6 +427,14 @@ export default function SessionScreen() {
 
     load();
   }, [db, workoutId]);
+
+  // ---- Sons en global pour pas de coupure de la musique ----
+  useEffect(() => {
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      interruptionMode: "mixWithOthers",
+    });
+  }, []);
 
   // ---- Décompte de 5s avant le vrai chrono (exercices "temps") ----
   useEffect(() => {
