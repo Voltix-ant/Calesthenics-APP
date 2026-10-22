@@ -1,9 +1,4 @@
-import {
-  Stack,
-  useFocusEffect,
-  useLocalSearchParams,
-  useRouter,
-} from "expo-router";
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCallback, useState } from "react";
 import {
@@ -40,19 +35,105 @@ type SetRow = {
   target_value: number;
 };
 
+type SessionRow = {
+  id: number;
+  performed_at: string;
+};
+
+type PerformanceRow = {
+  session_id: number;
+  exercise_id: number;
+  exercise_name: string;
+  exercise_type: "reps" | "time";
+  set_number: number;
+  actual_value: number;
+};
+
+// Format d'affichage d'une session : "10 septembre 2026, 14:32"
+// SQLite stocke les dates en UTC sans suffixe -> on l'ajoute nous-mêmes
+// pour que le JS interprète correctement le fuseau avant de reformater en local.
+const formatSessionDate = (performedAt: string) => {
+  const date = new Date(performedAt.replace(" ", "T") + "Z");
+  const datePart = date.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const timePart = date.toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${datePart}, ${timePart}`;
+};
+
+// ---- Sous-composant : un menu déroulant représentant une séance ----
+
+type ExerciseEntry = {
+  exerciseId: number;
+  exerciseName: string;
+  exerciseType: "reps" | "time";
+  sets: { setNumber: number; value: number }[];
+};
+
+function SessionAccordionItem({
+  session,
+  exerciseEntries,
+  expanded,
+  onToggle,
+}: {
+  session: SessionRow;
+  exerciseEntries: ExerciseEntry[];
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <View style={styles.accordionItem}>
+      <TouchableOpacity style={styles.accordionHeader} onPress={onToggle}>
+        <Text style={styles.accordionTitle}>
+          {formatSessionDate(session.performed_at)}
+        </Text>
+        <Text style={styles.accordionChevron}>{expanded ? "▲" : "▼"}</Text>
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={styles.accordionBody}>
+          {exerciseEntries.map((entry) => (
+            <View key={entry.exerciseId} style={styles.historyExerciseRow}>
+              <Text style={styles.historyExerciseName}>
+                {entry.exerciseName}
+              </Text>
+              <Text style={styles.historyExerciseValues}>
+                {entry.sets.map((s) => s.value).join(" - ")}{" "}
+                {entry.exerciseType === "reps" ? "reps" : "sec"}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function WorkoutDetailScreen() {
-  // useLocalSearchParams() retourne toujours des chaînes de texte (les URL sont du texte),
-  // donc il faut convertir en nombre pour l'utiliser dans les requêtes SQL
-  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const workoutId = parseInt(id, 10);
 
   const router = useRouter();
   const db = useSQLiteContext();
+  const insets = useSafeAreaInsets();
 
   const [workout, setWorkout] = useState<WorkoutRow | null>(null);
   const [blocks, setBlocks] = useState<BlockRow[]>([]);
   const [setsByBlock, setSetsByBlock] = useState<Record<number, SetRow[]>>({});
+
+  const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [orderedExerciseIds, setOrderedExerciseIds] = useState<number[]>([]);
+  const [performancesBySession, setPerformancesBySession] = useState<
+    Record<number, Record<number, ExerciseEntry>>
+  >({});
+  const [expandedSessionIds, setExpandedSessionIds] = useState<Set<number>>(
+    new Set(),
+  );
 
   const loadWorkout = useCallback(async () => {
     const workoutRow = await db.getFirstAsync<WorkoutRow>(
@@ -63,14 +144,9 @@ export default function WorkoutDetailScreen() {
 
     const blockRows = await db.getAllAsync<BlockRow>(
       `SELECT
-         wb.id AS block_id,
-         wb.order_index,
-         wb.type,
-         wb.rest_between_sets,
-         wb.rest_seconds,
-         e.id AS exercise_id,
-         e.name AS exercise_name,
-         e.type AS exercise_type
+         wb.id AS block_id, wb.order_index, wb.type,
+         wb.rest_between_sets, wb.rest_seconds,
+         e.id AS exercise_id, e.name AS exercise_name, e.type AS exercise_type
        FROM workout_blocks wb
        LEFT JOIN exercises e ON wb.exercise_id = e.id
        WHERE wb.workout_id = ?
@@ -87,14 +163,59 @@ export default function WorkoutDetailScreen() {
        ORDER BY ws.block_id, ws.set_number`,
       workoutId,
     );
-
-    // Regroupe les séries par block_id, pour un accès facile pendant le rendu
     const grouped: Record<number, SetRow[]> = {};
     for (const set of setRows) {
       if (!grouped[set.block_id]) grouped[set.block_id] = [];
       grouped[set.block_id].push(set);
     }
     setSetsByBlock(grouped);
+
+    // Ordre des exercices tel que défini dans l'entrainement (1re apparition), pour l'historique
+    const exerciseOrder: number[] = [];
+    for (const block of blockRows) {
+      if (block.type === "exercise" && block.exercise_id !== null) {
+        if (!exerciseOrder.includes(block.exercise_id)) {
+          exerciseOrder.push(block.exercise_id);
+        }
+      }
+    }
+    setOrderedExerciseIds(exerciseOrder);
+
+    // Historique des séances
+    const sessionRows = await db.getAllAsync<SessionRow>(
+      "SELECT id, performed_at FROM sessions WHERE workout_id = ? ORDER BY performed_at DESC",
+      workoutId,
+    );
+    setSessions(sessionRows);
+
+    const perfRows = await db.getAllAsync<PerformanceRow>(
+      `SELECT sp.session_id, sp.exercise_id, e.name AS exercise_name, e.type AS exercise_type,
+              sp.set_number, sp.actual_value
+       FROM session_performances sp
+       JOIN sessions s ON sp.session_id = s.id
+       JOIN exercises e ON sp.exercise_id = e.id
+       WHERE s.workout_id = ?
+       ORDER BY sp.session_id, sp.set_number`,
+      workoutId,
+    );
+
+    const bySession: Record<number, Record<number, ExerciseEntry>> = {};
+    for (const row of perfRows) {
+      if (!bySession[row.session_id]) bySession[row.session_id] = {};
+      if (!bySession[row.session_id][row.exercise_id]) {
+        bySession[row.session_id][row.exercise_id] = {
+          exerciseId: row.exercise_id,
+          exerciseName: row.exercise_name,
+          exerciseType: row.exercise_type,
+          sets: [],
+        };
+      }
+      bySession[row.session_id][row.exercise_id].sets.push({
+        setNumber: row.set_number,
+        value: row.actual_value,
+      });
+    }
+    setPerformancesBySession(bySession);
   }, [db, workoutId]);
 
   useFocusEffect(
@@ -102,6 +223,18 @@ export default function WorkoutDetailScreen() {
       loadWorkout();
     }, [loadWorkout]),
   );
+
+  const toggleSession = (sessionId: number) => {
+    setExpandedSessionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) {
+        next.delete(sessionId);
+      } else {
+        next.add(sessionId);
+      }
+      return next;
+    });
+  };
 
   const handleDelete = () => {
     Alert.alert(
@@ -181,6 +314,33 @@ export default function WorkoutDetailScreen() {
           ))}
         </View>
 
+        <View style={styles.historySection}>
+          <Text style={styles.sectionTitle}>Historique</Text>
+          {sessions.length === 0 ? (
+            <Text style={styles.emptyHistoryText}>
+              Aucune séance enregistrée pour l'instant.
+            </Text>
+          ) : (
+            sessions.map((session) => {
+              const performancesForSession =
+                performancesBySession[session.id] ?? {};
+              const exerciseEntries = orderedExerciseIds
+                .map((exId) => performancesForSession[exId])
+                .filter((entry): entry is ExerciseEntry => entry !== undefined);
+
+              return (
+                <SessionAccordionItem
+                  key={session.id}
+                  session={session}
+                  exerciseEntries={exerciseEntries}
+                  expanded={expandedSessionIds.has(session.id)}
+                  onToggle={() => toggleSession(session.id)}
+                />
+              );
+            })
+          )}
+        </View>
+
         <View style={styles.actionsSection}>
           <TouchableOpacity
             style={styles.editButton}
@@ -226,6 +386,40 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 16, fontWeight: "600", color: "#000" },
   cardSubtitle: { fontSize: 14, color: "#333", marginTop: 4 },
   cardMeta: { fontSize: 13, color: "#777", marginTop: 2 },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#000",
+    marginBottom: 10,
+  },
+  historySection: { marginBottom: 24 },
+  emptyHistoryText: { color: "#888", fontStyle: "italic" },
+  accordionItem: {
+    borderWidth: 1,
+    borderColor: "#eee",
+    borderRadius: 8,
+    marginBottom: 8,
+    overflow: "hidden",
+  },
+  accordionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 14,
+    backgroundColor: "#fafafa",
+  },
+  accordionTitle: { fontSize: 15, fontWeight: "600", color: "#000" },
+  accordionChevron: { fontSize: 12, color: "#888" },
+  accordionBody: { padding: 14, paddingTop: 0 },
+  historyExerciseRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
+  },
+  historyExerciseName: { fontSize: 14, color: "#000", flex: 1 },
+  historyExerciseValues: { fontSize: 14, color: "#555" },
   actionsSection: { flexDirection: "row", gap: 12, marginBottom: 32 },
   editButton: {
     flex: 1,
