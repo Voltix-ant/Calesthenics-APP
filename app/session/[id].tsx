@@ -4,6 +4,7 @@ import {
   useAudioPlayer,
   useAudioPlayerStatus,
 } from "expo-audio";
+import { useKeepAwake } from "expo-keep-awake";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useState } from "react";
@@ -272,6 +273,7 @@ function SessionTopBar({
 // ---- Écran principal ----
 
 export default function SessionScreen() {
+  useKeepAwake();
   const { id } = useLocalSearchParams<{ id: string }>();
   const workoutId = parseInt(id, 10);
   const router = useRouter();
