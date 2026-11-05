@@ -7,9 +7,10 @@ import {
 import { useKeepAwake } from "expo-keep-awake";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  AppState,
   StyleSheet,
   Text,
   TextInput,
@@ -226,6 +227,8 @@ function ReviewPhaseView({
   );
 }
 
+// ---- Sous-composant : barre du haut (chrono global, son, progression, croix) ----
+
 function SessionTopBar({
   elapsedSeconds,
   progressPercent,
@@ -273,13 +276,16 @@ function SessionTopBar({
 // ---- Écran principal ----
 
 export default function SessionScreen() {
+  // Garde l'écran allumé pendant toute la séance
   useKeepAwake();
+
   const { id } = useLocalSearchParams<{ id: string }>();
   const workoutId = parseInt(id, 10);
   const router = useRouter();
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
 
+  // ---- State de la séance ----
   const [loading, setLoading] = useState(true);
   const [workoutName, setWorkoutName] = useState("");
   const [steps, setSteps] = useState<SessionStep[]>([]);
@@ -290,20 +296,42 @@ export default function SessionScreen() {
   const [performedValues, setPerformedValues] = useState<
     Record<number, number>
   >({});
-
   const [exercisePhase, setExercisePhase] = useState<
     "idle" | "countdown" | "timing"
   >("idle");
-  const [countdownValue, setCountdownValue] = useState(5);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-
   const [reviewValue, setReviewValue] = useState(0);
-  const [restRemaining, setRestRemaining] = useState(0);
-
-  const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
-
   const [soundEnabled, setSoundEnabled] = useState(true);
 
+  // ---- Chronos : basés sur l'horloge du téléphone ----
+  // Au lieu de compter les secondes qui passent (ce qui s'arrête quand l'appli
+  // est en arrière-plan), on mémorise l'heure de début de chaque chrono et on
+  // calcule le temps écoulé à partir de l'heure actuelle ("now").
+  const [now, setNow] = useState(Date.now());
+  const sessionStartRef = useRef(Date.now());
+  const [countdownStartedAt, setCountdownStartedAt] = useState<number | null>(
+    null,
+  );
+  const [timingStartedAt, setTimingStartedAt] = useState<number | null>(null);
+  const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
+
+  // Valeurs dérivées : recalculées à chaque rendu, pas stockées dans le state
+  const sessionElapsedSeconds = Math.floor(
+    (now - sessionStartRef.current) / 1000,
+  );
+  const countdownValue =
+    countdownStartedAt === null
+      ? 5
+      : Math.max(0, 5 - Math.floor((now - countdownStartedAt) / 1000));
+  const elapsedSeconds =
+    timingStartedAt === null ? 0 : Math.floor((now - timingStartedAt) / 1000);
+  const restRemaining =
+    restEndsAt === null ? 0 : Math.max(0, Math.ceil((restEndsAt - now) / 1000));
+
+  // ---- Étape courante (undefined tant que le chargement n'est pas fini) ----
+  const step = steps[currentIndex];
+  const isLastStep = currentIndex === steps.length - 1;
+
+  // ---- Sons ----
   const countdownPlayer = useAudioPlayer(
     require("../../assets/sounds/countdown-start.mp3"),
   );
@@ -317,7 +345,7 @@ export default function SessionScreen() {
 
   const playCountdownStart = () => {
     if (!soundEnabled) return;
-    if (!countdownPlayerStatus.isLoaded) return; // pas encore prêt, on ignore silencieusement
+    if (!countdownPlayerStatus.isLoaded) return;
     countdownPlayer.seekTo(0);
     countdownPlayer.play();
   };
@@ -430,7 +458,7 @@ export default function SessionScreen() {
     load();
   }, [db, workoutId]);
 
-  // ---- Sons en global pour pas de coupure de la musique ----
+  // ---- Mode audio : les bips se superposent à la musique sans la couper ----
   useEffect(() => {
     setAudioModeAsync({
       playsInSilentMode: true,
@@ -438,82 +466,89 @@ export default function SessionScreen() {
     });
   }, []);
 
-  // ---- Décompte de 5s avant le vrai chrono (exercices "temps") ----
+  // ---- Horloge commune : met à jour "now" 4 fois par seconde ----
+  // + resynchronisation immédiate quand on revient sur l'appli
   useEffect(() => {
-    if (exercisePhase !== "countdown") return;
-    if (countdownValue <= 0) {
+    const interval = setInterval(() => setNow(Date.now()), 250);
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") setNow(Date.now());
+    });
+    return () => {
+      clearInterval(interval);
+      subscription.remove();
+    };
+  }, []);
+
+  // ---- Passage automatique du décompte de 5s au vrai chrono ----
+  useEffect(() => {
+    if (
+      exercisePhase === "countdown" &&
+      countdownStartedAt !== null &&
+      now - countdownStartedAt >= 5000
+    ) {
+      // Le chrono démarre exactement 5s après le début du décompte,
+      // même si l'écran a mis du temps à se mettre à jour
+      setTimingStartedAt(countdownStartedAt + 5000);
       setExercisePhase("timing");
-      setElapsedSeconds(0);
-      return;
     }
-    const timeout = setTimeout(() => setCountdownValue((v) => v - 1), 1000);
-    return () => clearTimeout(timeout);
-  }, [exercisePhase, countdownValue]);
+  }, [now, exercisePhase, countdownStartedAt]);
 
-  // ---- Chrono qui compte en montant pendant l'exercice "temps" ----
+  // ---- Son : objectif atteint pendant un exercice "temps" ----
   useEffect(() => {
-    if (exercisePhase !== "timing") return;
-    const interval = setInterval(() => setElapsedSeconds((v) => v + 1), 1000);
-    return () => clearInterval(interval);
-  }, [exercisePhase]);
-
-  useEffect(() => {
-    if (exercisePhase !== "timing") return;
+    if (exercisePhase !== "timing" || !step) return;
     if (elapsedSeconds === step.targetValue) {
       playTargetReached();
     }
   }, [elapsedSeconds]);
 
-  // ---- Décompte du repos sur l'écran de revue ----
+  // ---- Son : fin du repos ----
   useEffect(() => {
-    if (screenPhase !== "review") return;
-    const isLastStep = currentIndex === steps.length - 1;
-    if (isLastStep || restRemaining <= 0) return;
-    const timeout = setTimeout(() => setRestRemaining((v) => v - 1), 1000);
-    return () => clearTimeout(timeout);
-  }, [screenPhase, restRemaining, currentIndex, steps.length]);
-
-  useEffect(() => {
-    if (screenPhase !== "review") return;
-    if (isLastStep) return;
+    if (screenPhase !== "review" || isLastStep || !step) return;
     if (step.restAfterSeconds > 0 && restRemaining === 0) {
       playRestEnd();
     }
   }, [restRemaining]);
 
-  // ---- Chrono global de l'entrainement ----
-  useEffect(() => {
-    const interval = setInterval(
-      () => setSessionElapsedSeconds((v) => v + 1),
-      1000,
-    );
-    return () => clearInterval(interval);
-  }, []); // tableau de dépendances vide = s'exécute une seule fois, au montage
+  // ---- Actions ----
 
   const handleStartTimer = () => {
     playCountdownStart();
+    const t = Date.now();
+    setNow(t);
+    setCountdownStartedAt(t);
+    setTimingStartedAt(null);
     setExercisePhase("countdown");
-    setCountdownValue(5);
   };
 
   const enterReview = (achievedValue: number) => {
-    const step = steps[currentIndex];
+    const t = Date.now();
+    setNow(t);
     setPerformedValues((prev) => ({ ...prev, [currentIndex]: achievedValue }));
     setReviewValue(achievedValue);
-    setRestRemaining(step.restAfterSeconds);
+    setRestEndsAt(t + step.restAfterSeconds * 1000);
     setScreenPhase("review");
   };
 
-  const handleFinishReps = () => enterReview(steps[currentIndex].targetValue);
-  const handleFinishTimer = () => enterReview(elapsedSeconds);
+  const handleFinishReps = () => enterReview(step.targetValue);
+
+  const handleFinishTimer = () => {
+    // On recalcule avec l'heure exacte plutôt que d'utiliser "elapsedSeconds",
+    // qui peut avoir jusqu'à 250 ms de retard
+    const seconds =
+      timingStartedAt !== null
+        ? Math.floor((Date.now() - timingStartedAt) / 1000)
+        : 0;
+    enterReview(seconds);
+  };
 
   const proceedToNext = () => {
     setPerformedValues((prev) => ({ ...prev, [currentIndex]: reviewValue }));
     setCurrentIndex((i) => i + 1);
     setScreenPhase("exercise");
     setExercisePhase("idle");
-    setElapsedSeconds(0);
-    setCountdownValue(5);
+    setCountdownStartedAt(null);
+    setTimingStartedAt(null);
+    setRestEndsAt(null);
   };
 
   const saveSession = async (finalValues: Record<number, number>) => {
@@ -581,6 +616,8 @@ export default function SessionScreen() {
     );
   };
 
+  // ---- Rendu ----
+
   if (loading) {
     return (
       <View style={styles.centerContent}>
@@ -597,12 +634,9 @@ export default function SessionScreen() {
     );
   }
 
-  const step = steps[currentIndex];
-  const isLastStep = currentIndex === steps.length - 1;
   const completedSteps =
     screenPhase === "review" ? currentIndex + 1 : currentIndex;
-  const progressPercent =
-    steps.length > 0 ? Math.round((completedSteps / steps.length) * 100) : 0;
+  const progressPercent = Math.round((completedSteps / steps.length) * 100);
 
   return (
     <>
@@ -649,8 +683,8 @@ export default function SessionScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" }, // (déjà existant, inchangé)
-  phaseContainer: { flex: 1 }, // nouveau : remplace l'ancien usage direct de "container" pour le contenu
+  container: { flex: 1, backgroundColor: "#fff" },
+  phaseContainer: { flex: 1 },
   topBar: {
     paddingHorizontal: 16,
     paddingBottom: 12,
@@ -663,29 +697,29 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   topBarTimer: { fontSize: 16, fontWeight: "600", color: "#000" },
+  topBarActions: { flexDirection: "row", alignItems: "center", gap: 16 },
   closeButton: { fontSize: 22, color: "#000" },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#000",
-    borderRadius: 3,
-  },
   progressRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
   progressTrack: {
-    flex: 1, // prend tout l'espace restant à côté du texte, au lieu de toute la largeur
+    flex: 1,
     height: 6,
     borderRadius: 3,
     backgroundColor: "#eee",
     overflow: "hidden",
   },
-
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#000",
+    borderRadius: 3,
+  },
   progressLabel: {
     fontSize: 13,
     color: "#666",
-    width: 36, // largeur fixe pour éviter que le texte "bouge" la barre quand le nombre change de taille (9% vs 100%)
+    width: 36,
     textAlign: "right",
   },
   centerContent: {
@@ -749,5 +783,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   doneText: { fontSize: 22, fontWeight: "700", marginBottom: 24 },
-  topBarActions: { flexDirection: "row", alignItems: "center", gap: 16 },
 });
