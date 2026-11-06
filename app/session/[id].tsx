@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   AppState,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -140,12 +141,70 @@ function ExercisePhaseView({
   );
 }
 
+// ---- Sous-composant : bouton +/− qui s'auto-répète quand on le maintient ----
+
+const HOLD_DELAY_MS = 400; // délai avant le début de la répétition
+const HOLD_INTERVAL_MS = 100; // vitesse de la répétition (plus petit = plus rapide)
+
+function HoldableStepperButton({
+  label,
+  delta,
+  onAdjust,
+}: {
+  label: string;
+  delta: number;
+  onAdjust: (delta: number) => void;
+}) {
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stop = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  const start = () => {
+    stop(); // sécurité : on repart toujours de zéro
+    onAdjust(delta); // 1er appui : on change tout de suite de 1
+    timeoutRef.current = setTimeout(() => {
+      // si le doigt reste appuyé, on répète
+      intervalRef.current = setInterval(
+        () => onAdjust(delta),
+        HOLD_INTERVAL_MS,
+      );
+    }, HOLD_DELAY_MS);
+  };
+
+  // Nettoyage si l'écran disparaît pendant qu'on appuie
+  useEffect(() => stop, []);
+
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.stepperButton,
+        pressed && { opacity: 0.5 },
+      ]}
+      onPressIn={start}
+      onPressOut={stop}
+    >
+      <Text style={styles.stepperButtonText}>{label}</Text>
+    </Pressable>
+  );
+}
+
 // ---- Sous-composant : écran "revue du résultat + repos" (ou fin de séance) ----
 
 function ReviewPhaseView({
   step,
   reviewValue,
   onChangeReviewValue,
+  onAdjustReviewValue,
   restRemaining,
   isLastStep,
   nextStep,
@@ -155,6 +214,7 @@ function ReviewPhaseView({
   step: SessionStep;
   reviewValue: number;
   onChangeReviewValue: (value: number) => void;
+  onAdjustReviewValue: (delta: number) => void;
   restRemaining: number;
   isLastStep: boolean;
   nextStep: SessionStep | null;
@@ -170,24 +230,22 @@ function ReviewPhaseView({
       </Text>
 
       <View style={styles.stepperRow}>
-        <TouchableOpacity
-          style={styles.stepperButton}
-          onPress={() => onChangeReviewValue(Math.max(0, reviewValue - 1))}
-        >
-          <Text style={styles.stepperButtonText}>−</Text>
-        </TouchableOpacity>
+        <HoldableStepperButton
+          label="-"
+          delta={-1}
+          onAdjust={onAdjustReviewValue}
+        />
         <TextInput
           style={styles.stepperInput}
           keyboardType="number-pad"
           value={reviewValue.toString()}
           onChangeText={(text) => onChangeReviewValue(parseInt(text) || 0)}
         />
-        <TouchableOpacity
-          style={styles.stepperButton}
-          onPress={() => onChangeReviewValue(reviewValue + 1)}
-        >
-          <Text style={styles.stepperButtonText}>+</Text>
-        </TouchableOpacity>
+        <HoldableStepperButton
+          label="+"
+          delta={1}
+          onAdjust={onAdjustReviewValue}
+        />
         <Text style={styles.stepperUnit}>{unit}</Text>
       </View>
 
@@ -541,6 +599,10 @@ export default function SessionScreen() {
     enterReview(seconds);
   };
 
+  const adjustReviewValue = (delta: number) => {
+    setReviewValue((v) => Math.max(0, v + delta));
+  };
+
   const proceedToNext = () => {
     setPerformedValues((prev) => ({ ...prev, [currentIndex]: reviewValue }));
     setCurrentIndex((i) => i + 1);
@@ -669,6 +731,7 @@ export default function SessionScreen() {
               step={step}
               reviewValue={reviewValue}
               onChangeReviewValue={setReviewValue}
+              onAdjustReviewValue={adjustReviewValue}
               restRemaining={restRemaining}
               isLastStep={isLastStep}
               nextStep={isLastStep ? null : steps[currentIndex + 1]}
