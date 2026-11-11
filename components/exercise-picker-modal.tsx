@@ -1,13 +1,13 @@
 import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useState } from "react";
 import {
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 export type ExerciseRow = {
@@ -16,15 +16,33 @@ export type ExerciseRow = {
   type: "reps" | "time";
 };
 
+type PickerProps = {
+  onClose: () => void;
+  onSelectExercise: (exercise: ExerciseRow) => void;
+};
+
+// La modale elle-même : n'affiche son contenu que lorsqu'elle est visible.
+// Quand elle se ferme, <ExercisePickerContent> est démonté et son state est
+// détruit : à la prochaine ouverture, la recherche repart donc de zéro,
+// sans avoir besoin d'un effet pour la "réinitialiser".
 export function ExercisePickerModal({
   visible,
   onClose,
   onSelectExercise,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  onSelectExercise: (exercise: ExerciseRow) => void;
-}) {
+}: PickerProps & { visible: boolean }) {
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      {visible && (
+        <ExercisePickerContent
+          onClose={onClose}
+          onSelectExercise={onSelectExercise}
+        />
+      )}
+    </Modal>
+  );
+}
+
+function ExercisePickerContent({ onClose, onSelectExercise }: PickerProps) {
   const db = useSQLiteContext();
   const [searchText, setSearchText] = useState("");
   const [searchResults, setSearchResults] = useState<ExerciseRow[]>([]);
@@ -32,17 +50,7 @@ export function ExercisePickerModal({
     "reps",
   );
 
-  // Réinitialise la recherche à chaque ouverture de la modal
   useEffect(() => {
-    if (visible) {
-      setSearchText("");
-      setNewExerciseType("reps");
-    }
-  }, [visible]);
-
-  useEffect(() => {
-    if (!visible) return;
-
     const search = async () => {
       const results = await db.getAllAsync<ExerciseRow>(
         "SELECT id, name, type FROM exercises WHERE name LIKE ? ORDER BY name LIMIT 20",
@@ -51,7 +59,7 @@ export function ExercisePickerModal({
       setSearchResults(results);
     };
     search();
-  }, [searchText, visible, db]);
+  }, [searchText, db]);
 
   const handleCreateExercise = async () => {
     const trimmed = searchText.trim();
@@ -71,71 +79,69 @@ export function ExercisePickerModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide">
-      <View style={styles.modalContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Rechercher un exercice..."
-          placeholderTextColor="#999"
-          value={searchText}
-          onChangeText={setSearchText}
-          autoFocus
-        />
+    <View style={styles.modalContainer}>
+      <TextInput
+        style={styles.input}
+        placeholder="Rechercher un exercice..."
+        placeholderTextColor="#999"
+        value={searchText}
+        onChangeText={setSearchText}
+        autoFocus
+      />
 
-        <ScrollView style={styles.flex}>
-          {searchResults.map((exercise) => (
-            <TouchableOpacity
-              key={exercise.id}
-              style={styles.resultItem}
-              onPress={() => onSelectExercise(exercise)}
-            >
-              <Text style={styles.resultText}>{exercise.name}</Text>
-              <Text style={styles.resultType}>
-                {exercise.type === "reps" ? "Répétitions" : "Temps"}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {searchText.trim() !== "" && (
-          <View style={styles.createSection}>
-            <Text style={styles.label}>
-              Aucun résultat ? Créer "{searchText.trim()}"
+      <ScrollView style={styles.flex}>
+        {searchResults.map((exercise) => (
+          <TouchableOpacity
+            key={exercise.id}
+            style={styles.resultItem}
+            onPress={() => onSelectExercise(exercise)}
+          >
+            <Text style={styles.resultText}>{exercise.name}</Text>
+            <Text style={styles.resultType}>
+              {exercise.type === "reps" ? "Répétitions" : "Temps"}
             </Text>
-            <View style={styles.typeToggleRow}>
-              <TouchableOpacity
-                style={[
-                  styles.typeToggle,
-                  newExerciseType === "reps" && styles.typeToggleActive,
-                ]}
-                onPress={() => setNewExerciseType("reps")}
-              >
-                <Text>Répétitions</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.typeToggle,
-                  newExerciseType === "time" && styles.typeToggleActive,
-                ]}
-                onPress={() => setNewExerciseType("time")}
-              >
-                <Text>Temps</Text>
-              </TouchableOpacity>
-            </View>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {searchText.trim() !== "" && (
+        <View style={styles.createSection}>
+          <Text style={styles.label}>
+            Aucun résultat ? Créer "{searchText.trim()}"
+          </Text>
+          <View style={styles.typeToggleRow}>
             <TouchableOpacity
-              style={styles.saveButton}
-              onPress={handleCreateExercise}
+              style={[
+                styles.typeToggle,
+                newExerciseType === "reps" && styles.typeToggleActive,
+              ]}
+              onPress={() => setNewExerciseType("reps")}
             >
-              <Text style={styles.saveButtonText}>Créer et ajouter</Text>
+              <Text>Répétitions</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.typeToggle,
+                newExerciseType === "time" && styles.typeToggleActive,
+              ]}
+              onPress={() => setNewExerciseType("time")}
+            >
+              <Text>Temps</Text>
             </TouchableOpacity>
           </View>
-        )}
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={handleCreateExercise}
+          >
+            <Text style={styles.saveButtonText}>Créer et ajouter</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-        <TouchableOpacity onPress={onClose}>
-          <Text style={styles.cancelText}>Annuler</Text>
-        </TouchableOpacity>
-      </View>
-    </Modal>
+      <TouchableOpacity onPress={onClose}>
+        <Text style={styles.cancelText}>Annuler</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 

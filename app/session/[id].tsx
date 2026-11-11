@@ -60,6 +60,8 @@ type SessionStep = {
   restAfterSeconds: number;
 };
 
+const COUNTDOWN_MS = 5000; // décompte avant le chrono d'un exercice "temps"
+
 const formatDuration = (totalSeconds: number) => {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -331,7 +333,11 @@ function SessionTopBar({
   );
 }
 
-// ---- Écran principal ----
+// ---- Écran principal : charge l'entrainement, puis lance la séance ----
+// Découpé en deux composants pour que <SessionRunner> ne soit affiché qu'une
+// fois les séries chargées : à l'intérieur, l'étape courante existe toujours.
+// (Le React Compiler lit les valeurs utilisées par les fonctions pendant le
+// rendu pour les mémoïser : un `step` undefined pendant le chargement plantait.)
 
 export default function SessionScreen() {
   // Garde l'écran allumé pendant toute la séance
@@ -339,96 +345,14 @@ export default function SessionScreen() {
 
   const { id } = useLocalSearchParams<{ id: string }>();
   const workoutId = parseInt(id, 10);
-  const router = useRouter();
   const db = useSQLiteContext();
-  const insets = useSafeAreaInsets();
 
-  // ---- State de la séance ----
   const [loading, setLoading] = useState(true);
-  const [workoutName, setWorkoutName] = useState("");
   const [steps, setSteps] = useState<SessionStep[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [screenPhase, setScreenPhase] = useState<"exercise" | "review">(
-    "exercise",
-  );
-  const [performedValues, setPerformedValues] = useState<
-    Record<number, number>
-  >({});
-  const [exercisePhase, setExercisePhase] = useState<
-    "idle" | "countdown" | "timing"
-  >("idle");
-  const [reviewValue, setReviewValue] = useState(0);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-
-  // ---- Chronos : basés sur l'horloge du téléphone ----
-  // Au lieu de compter les secondes qui passent (ce qui s'arrête quand l'appli
-  // est en arrière-plan), on mémorise l'heure de début de chaque chrono et on
-  // calcule le temps écoulé à partir de l'heure actuelle ("now").
-  const [now, setNow] = useState(Date.now());
-  const sessionStartRef = useRef(Date.now());
-  const [countdownStartedAt, setCountdownStartedAt] = useState<number | null>(
-    null,
-  );
-  const [timingStartedAt, setTimingStartedAt] = useState<number | null>(null);
-  const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
-
-  // Valeurs dérivées : recalculées à chaque rendu, pas stockées dans le state
-  const sessionElapsedSeconds = Math.floor(
-    (now - sessionStartRef.current) / 1000,
-  );
-  const countdownValue =
-    countdownStartedAt === null
-      ? 5
-      : Math.max(0, 5 - Math.floor((now - countdownStartedAt) / 1000));
-  const elapsedSeconds =
-    timingStartedAt === null ? 0 : Math.floor((now - timingStartedAt) / 1000);
-  const restRemaining =
-    restEndsAt === null ? 0 : Math.max(0, Math.ceil((restEndsAt - now) / 1000));
-
-  // ---- Étape courante (undefined tant que le chargement n'est pas fini) ----
-  const step = steps[currentIndex];
-  const isLastStep = currentIndex === steps.length - 1;
-
-  // ---- Sons ----
-  const countdownPlayer = useAudioPlayer(
-    require("../../assets/sounds/countdown-start.mp3"),
-  );
-  const countdownPlayerStatus = useAudioPlayerStatus(countdownPlayer);
-  const targetReachedPlayer = useAudioPlayer(
-    require("../../assets/sounds/target-reached.mp3"),
-  );
-  const restEndPlayer = useAudioPlayer(
-    require("../../assets/sounds/rest-end.mp3"),
-  );
-
-  const playCountdownStart = () => {
-    if (!soundEnabled) return;
-    if (!countdownPlayerStatus.isLoaded) return;
-    countdownPlayer.seekTo(0);
-    countdownPlayer.play();
-  };
-
-  const playTargetReached = () => {
-    if (!soundEnabled) return;
-    targetReachedPlayer.seekTo(0);
-    targetReachedPlayer.play();
-  };
-
-  const playRestEnd = () => {
-    if (!soundEnabled) return;
-    restEndPlayer.seekTo(0);
-    restEndPlayer.play();
-  };
 
   // ---- Chargement + aplatissement de l'entrainement ----
   useEffect(() => {
     const load = async () => {
-      const workoutRow = await db.getFirstAsync<{ name: string }>(
-        "SELECT name FROM workouts WHERE id = ?",
-        workoutId,
-      );
-      if (workoutRow) setWorkoutName(workoutRow.name);
-
       const blockRows = await db.getAllAsync<BlockRow>(
         `SELECT
            wb.id AS block_id, wb.order_index, wb.type,
@@ -516,6 +440,112 @@ export default function SessionScreen() {
     load();
   }, [db, workoutId]);
 
+  if (loading) {
+    return (
+      <View style={styles.centerContent}>
+        <Text>Chargement...</Text>
+      </View>
+    );
+  }
+
+  if (steps.length === 0) {
+    return (
+      <View style={styles.centerContent}>
+        <Text>Aucun exercice dans cet entrainement.</Text>
+      </View>
+    );
+  }
+
+  return <SessionRunner workoutId={workoutId} steps={steps} />;
+}
+
+// ---- La séance elle-même (steps est garanti non vide) ----
+
+function SessionRunner({
+  workoutId,
+  steps,
+}: {
+  workoutId: number;
+  steps: SessionStep[];
+}) {
+  const router = useRouter();
+  const db = useSQLiteContext();
+  const insets = useSafeAreaInsets();
+
+  // ---- State de la séance ----
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [screenPhase, setScreenPhase] = useState<"exercise" | "review">(
+    "exercise",
+  );
+  const [performedValues, setPerformedValues] = useState<
+    Record<number, number>
+  >({});
+  const [reviewValue, setReviewValue] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // ---- Chronos : basés sur l'horloge du téléphone ----
+  // Au lieu de compter les secondes qui passent (ce qui s'arrête quand l'appli
+  // est en arrière-plan), on mémorise l'heure de début de chaque chrono et on
+  // calcule le temps écoulé à partir de l'heure actuelle ("now").
+  //
+  // `useState(() => Date.now())` : la fonction n'est appelée qu'au tout premier
+  // rendu (initialisation "paresseuse"). Écrire `useState(Date.now())` appellerait
+  // Date.now() à chaque rendu pour rien, ce que le React Compiler refuse.
+  const [now, setNow] = useState(() => Date.now());
+  const [sessionStartedAt] = useState(() => Date.now());
+  const [countdownStartedAt, setCountdownStartedAt] = useState<number | null>(
+    null,
+  );
+  const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
+
+  // Valeurs dérivées : recalculées à chaque rendu, pas stockées dans le state.
+  // La phase de l'exercice "temps" se déduit de l'heure de début du décompte :
+  // rien lancé -> "idle", moins de 5 s écoulées -> "countdown", sinon -> "timing".
+  // Le chrono démarre donc exactement 5 s après le début du décompte.
+  const sessionElapsedSeconds = Math.floor((now - sessionStartedAt) / 1000);
+  const exercisePhase: "idle" | "countdown" | "timing" =
+    countdownStartedAt === null
+      ? "idle"
+      : now - countdownStartedAt < COUNTDOWN_MS
+        ? "countdown"
+        : "timing";
+  const timingStartedAt =
+    countdownStartedAt === null ? null : countdownStartedAt + COUNTDOWN_MS;
+  const countdownValue =
+    countdownStartedAt === null
+      ? 5
+      : Math.max(0, 5 - Math.floor((now - countdownStartedAt) / 1000));
+  const elapsedSeconds =
+    exercisePhase === "timing" && timingStartedAt !== null
+      ? Math.floor((now - timingStartedAt) / 1000)
+      : 0;
+  const restRemaining =
+    restEndsAt === null ? 0 : Math.max(0, Math.ceil((restEndsAt - now) / 1000));
+
+  // ---- Étape courante (toujours définie : steps est non vide et on ne
+  // dépasse jamais la dernière étape) ----
+  const step = steps[currentIndex];
+  const isLastStep = currentIndex === steps.length - 1;
+
+  // ---- Sons ----
+  const countdownPlayer = useAudioPlayer(
+    require("../../assets/sounds/countdown-start.mp3"),
+  );
+  const countdownPlayerStatus = useAudioPlayerStatus(countdownPlayer);
+  const targetReachedPlayer = useAudioPlayer(
+    require("../../assets/sounds/target-reached.mp3"),
+  );
+  const restEndPlayer = useAudioPlayer(
+    require("../../assets/sounds/rest-end.mp3"),
+  );
+
+  const playCountdownStart = () => {
+    if (!soundEnabled) return;
+    if (!countdownPlayerStatus.isLoaded) return;
+    countdownPlayer.seekTo(0);
+    countdownPlayer.play();
+  };
+
   // ---- Mode audio : les bips se superposent à la musique sans la couper ----
   useEffect(() => {
     setAudioModeAsync({
@@ -537,50 +567,63 @@ export default function SessionScreen() {
     };
   }, []);
 
-  // ---- Passage automatique du décompte de 5s au vrai chrono ----
-  useEffect(() => {
-    if (
-      exercisePhase === "countdown" &&
-      countdownStartedAt !== null &&
-      now - countdownStartedAt >= 5000
-    ) {
-      // Le chrono démarre exactement 5s après le début du décompte,
-      // même si l'écran a mis du temps à se mettre à jour
-      setTimingStartedAt(countdownStartedAt + 5000);
-      setExercisePhase("timing");
-    }
-  }, [now, exercisePhase, countdownStartedAt]);
+  // ---- Bips : chacun ne doit sonner qu'une fois par série ----
+  // Un ref (contrairement au state) garde une valeur entre les rendus sans en
+  // provoquer de nouveau : parfait pour un simple drapeau "déjà joué".
+  // Grâce à lui, les effets ci-dessous peuvent lister toutes leurs dépendances
+  // sans risquer de rejouer le son (ex. si on coupe/remet le son au mauvais moment).
+  const targetBeepPlayedRef = useRef(false);
+  const restBeepPlayedRef = useRef(false);
 
   // ---- Son : objectif atteint pendant un exercice "temps" ----
+  // ">=" plutôt que "===" : si l'appli était en arrière-plan au moment exact
+  // où l'objectif a été atteint, le bip sonne au retour au lieu d'être perdu.
   useEffect(() => {
-    if (exercisePhase !== "timing" || !step) return;
-    if (elapsedSeconds === step.targetValue) {
-      playTargetReached();
+    if (exercisePhase !== "timing") return;
+    if (targetBeepPlayedRef.current) return;
+    if (elapsedSeconds >= step.targetValue) {
+      targetBeepPlayedRef.current = true;
+      if (soundEnabled) {
+        targetReachedPlayer.seekTo(0);
+        targetReachedPlayer.play();
+      }
     }
-  }, [elapsedSeconds]);
+  }, [elapsedSeconds, exercisePhase, step, soundEnabled, targetReachedPlayer]);
 
   // ---- Son : fin du repos ----
   useEffect(() => {
-    if (screenPhase !== "review" || isLastStep || !step) return;
+    if (screenPhase !== "review" || isLastStep) return;
+    if (restBeepPlayedRef.current) return;
     if (step.restAfterSeconds > 0 && restRemaining === 0) {
-      playRestEnd();
+      restBeepPlayedRef.current = true;
+      if (soundEnabled) {
+        restEndPlayer.seekTo(0);
+        restEndPlayer.play();
+      }
     }
-  }, [restRemaining]);
+  }, [
+    restRemaining,
+    screenPhase,
+    isLastStep,
+    step,
+    soundEnabled,
+    restEndPlayer,
+  ]);
 
   // ---- Actions ----
 
   const handleStartTimer = () => {
     playCountdownStart();
+    targetBeepPlayedRef.current = false;
     const t = Date.now();
     setNow(t);
     setCountdownStartedAt(t);
-    setTimingStartedAt(null);
-    setExercisePhase("countdown");
   };
 
   const enterReview = (achievedValue: number) => {
     const t = Date.now();
     setNow(t);
+    restBeepPlayedRef.current = false;
     setPerformedValues((prev) => ({ ...prev, [currentIndex]: achievedValue }));
     setReviewValue(achievedValue);
     setRestEndsAt(t + step.restAfterSeconds * 1000);
@@ -607,9 +650,7 @@ export default function SessionScreen() {
     setPerformedValues((prev) => ({ ...prev, [currentIndex]: reviewValue }));
     setCurrentIndex((i) => i + 1);
     setScreenPhase("exercise");
-    setExercisePhase("idle");
     setCountdownStartedAt(null);
-    setTimingStartedAt(null);
     setRestEndsAt(null);
   };
 
@@ -679,22 +720,6 @@ export default function SessionScreen() {
   };
 
   // ---- Rendu ----
-
-  if (loading) {
-    return (
-      <View style={styles.centerContent}>
-        <Text>Chargement...</Text>
-      </View>
-    );
-  }
-
-  if (steps.length === 0) {
-    return (
-      <View style={styles.centerContent}>
-        <Text>Aucun exercice dans cet entrainement.</Text>
-      </View>
-    );
-  }
 
   const completedSteps =
     screenPhase === "review" ? currentIndex + 1 : currentIndex;

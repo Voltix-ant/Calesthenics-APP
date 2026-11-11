@@ -1,6 +1,6 @@
 import { useFocusEffect } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 const TABLES = [
@@ -16,19 +16,18 @@ export default function DebugScreen() {
   const db = useSQLiteContext();
   const [data, setData] = useState<Record<string, any[]>>({});
 
-  const loadAll = useCallback(async () => {
+  const loadAll = async () => {
     const result: Record<string, any[]> = {};
     for (const table of TABLES) {
       result[table] = await db.getAllAsync(`SELECT * FROM ${table}`);
     }
     setData(result);
-  }, [db]);
+  };
 
-  useFocusEffect(
-    useCallback(() => {
-      loadAll();
-    }, [loadAll]),
-  );
+  // Pas de useCallback : le React Compiler mémoïse déjà cette fonction
+  useFocusEffect(() => {
+    loadAll();
+  });
 
   return (
     <ScrollView style={styles.container}>

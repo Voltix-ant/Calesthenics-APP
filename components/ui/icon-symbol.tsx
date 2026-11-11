@@ -1,35 +1,20 @@
-// Fallback for using MaterialIcons on Android and web.
-
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { SymbolViewProps, SymbolWeight } from "expo-symbols";
 import { ComponentProps } from "react";
-import { OpaqueColorValue, type StyleProp, type TextStyle } from "react-native";
-
-type IconMapping = Record<
-  SymbolViewProps["name"],
-  ComponentProps<typeof MaterialIcons>["name"]
->;
-type IconSymbolName = keyof typeof MAPPING;
+import { type ColorValue, type StyleProp, type TextStyle } from "react-native";
 
 /**
- * Add your SF Symbols to Material Icons mappings here.
- * - see Material Icons in the [Icons Directory](https://icons.expo.fyi).
- * - see SF Symbols in the [SF Symbols](https://developer.apple.com/sf-symbols/) app.
+ * Noms d'icônes utilisés dans l'appli -> icône Material correspondante.
+ * Liste des icônes disponibles : https://icons.expo.fyi (filtre "MaterialIcons").
+ * Les noms de gauche sont ceux des SF Symbols d'Apple, gardés pour un éventuel portage iOS.
  */
 const MAPPING = {
   "house.fill": "home",
-  "paperplane.fill": "send",
-  "chevron.left.forwardslash.chevron.right": "code",
-  "chevron.right": "chevron-right",
   "speaker.wave.2.fill": "volume-up",
   "speaker.slash.fill": "volume-off",
-} as IconMapping;
+} satisfies Record<string, ComponentProps<typeof MaterialIcons>["name"]>;
 
-/**
- * An icon component that uses native SF Symbols on iOS, and Material Icons on Android and web.
- * This ensures a consistent look across platforms, and optimal resource usage.
- * Icon `name`s are based on SF Symbols and require manual mapping to Material Icons.
- */
+type IconSymbolName = keyof typeof MAPPING;
+
 export function IconSymbol({
   name,
   size = 24,
@@ -38,13 +23,14 @@ export function IconSymbol({
 }: {
   name: IconSymbolName;
   size?: number;
-  color: string | OpaqueColorValue;
+  color: ColorValue;
   style?: StyleProp<TextStyle>;
-  weight?: SymbolWeight;
 }) {
   return (
     <MaterialIcons
-      color={color}
+      // ColorValue peut aussi être un nombre ou null (cas rares que
+      // MaterialIcons n'accepte pas) : on ne transmet que les vraies couleurs
+      color={typeof color === "number" ? undefined : (color ?? undefined)}
       size={size}
       name={MAPPING[name]}
       style={style}

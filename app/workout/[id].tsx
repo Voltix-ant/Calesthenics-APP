@@ -1,6 +1,6 @@
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import {
   Alert,
   ScrollView,
@@ -135,7 +135,7 @@ export default function WorkoutDetailScreen() {
     new Set(),
   );
 
-  const loadWorkout = useCallback(async () => {
+  const loadWorkout = async () => {
     const workoutRow = await db.getFirstAsync<WorkoutRow>(
       "SELECT id, name, description FROM workouts WHERE id = ?",
       workoutId,
@@ -216,13 +216,12 @@ export default function WorkoutDetailScreen() {
       });
     }
     setPerformancesBySession(bySession);
-  }, [db, workoutId]);
+  };
 
-  useFocusEffect(
-    useCallback(() => {
-      loadWorkout();
-    }, [loadWorkout]),
-  );
+  // Pas de useCallback : le React Compiler mémoïse déjà cette fonction
+  useFocusEffect(() => {
+    loadWorkout();
+  });
 
   const toggleSession = (sessionId: number) => {
     setExpandedSessionIds((prev) => {

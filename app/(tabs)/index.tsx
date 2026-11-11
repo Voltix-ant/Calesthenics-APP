@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import {
   FlatList,
   StyleSheet,
@@ -22,20 +22,19 @@ export default function WorkoutsScreen() {
   const db = useSQLiteContext();
   const [workouts, setWorkouts] = useState<Workout[]>([]);
 
-  const loadWorkouts = useCallback(async () => {
+  const loadWorkouts = async () => {
     const result = await db.getAllAsync<Workout>(
       "SELECT id, name, created_at FROM workouts ORDER BY created_at DESC",
     );
     setWorkouts(result);
-  }, [db]);
+  };
 
   // Recharge la liste à chaque fois que cet écran redevient actif
-  // (utile après avoir créé un entrainement puis être revenu ici)
-  useFocusEffect(
-    useCallback(() => {
-      loadWorkouts();
-    }, [loadWorkouts]),
-  );
+  // (utile après avoir créé un entrainement puis être revenu ici).
+  // Pas de useCallback : le React Compiler mémoïse déjà cette fonction.
+  useFocusEffect(() => {
+    loadWorkouts();
+  });
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
