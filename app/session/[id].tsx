@@ -1,4 +1,6 @@
+import { SessionRecap } from "@/components/session-recap";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import type { SessionStep } from "@/types/session";
 import {
   setAudioModeAsync,
   useAudioPlayer,
@@ -46,20 +48,6 @@ type PerfRow = {
   actual_value: number;
 };
 
-// ---- Le format "aplati" utilisé pendant toute la séance ----
-
-type SessionStep = {
-  exerciseId: number;
-  exerciseName: string;
-  exerciseType: "reps" | "time";
-  setNumber: number;
-  totalSets: number;
-  targetValue: number;
-  isFirstTime: boolean;
-  record: number | null;
-  restAfterSeconds: number;
-};
-
 const COUNTDOWN_MS = 5000; // décompte avant le chrono d'un exercice "temps"
 
 const formatDuration = (totalSeconds: number) => {
@@ -98,7 +86,7 @@ function ExercisePhaseView({
         Objectif : {step.targetValue}{" "}
         {step.exerciseType === "reps" ? "reps" : "sec"}
       </Text>
-      {step.isFirstTime && (
+      {step.previousValue === null && (
         <Text style={styles.hint}>(première fois sur cette série)</Text>
       )}
 
@@ -211,7 +199,7 @@ function ReviewPhaseView({
   isLastStep,
   nextStep,
   onContinue,
-  onFinishSession,
+  onGoToRecap,
 }: {
   step: SessionStep;
   reviewValue: number;
@@ -221,7 +209,7 @@ function ReviewPhaseView({
   isLastStep: boolean;
   nextStep: SessionStep | null;
   onContinue: () => void;
-  onFinishSession: () => void;
+  onGoToRecap: () => void;
 }) {
   const unit = step.exerciseType === "reps" ? "reps" : "sec";
 
@@ -254,13 +242,8 @@ function ReviewPhaseView({
       {isLastStep ? (
         <>
           <Text style={styles.doneText}>Séance terminée !</Text>
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={onFinishSession}
-          >
-            <Text style={styles.primaryButtonText}>
-              Enregistrer et terminer
-            </Text>
+          <TouchableOpacity style={styles.primaryButton} onPress={onGoToRecap}>
+            <Text style={styles.primaryButtonText}>Passer au récap</Text>
           </TouchableOpacity>
         </>
       ) : (
@@ -426,7 +409,7 @@ export default function SessionScreen() {
             setNumber: i + 1,
             totalSets: sets.length,
             targetValue: lastValueMap.get(key) ?? sets[i].target_value,
-            isFirstTime: !lastValueMap.has(key),
+            previousValue: lastValueMap.get(key) ?? null,
             record: recordMap.get(key) ?? null,
             restAfterSeconds: restAfter,
           });
@@ -474,9 +457,10 @@ function SessionRunner({
 
   // ---- State de la séance ----
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [screenPhase, setScreenPhase] = useState<"exercise" | "review">(
-    "exercise",
-  );
+  const [screenPhase, setScreenPhase] = useState<
+    "exercise" | "review" | "recap"
+  >("exercise");
+  const [isSaving, setIsSaving] = useState(false);
   const [performedValues, setPerformedValues] = useState<
     Record<number, number>
   >({});
@@ -676,16 +660,37 @@ function SessionRunner({
     });
   };
 
+  // Après la dernière série : on valide sa valeur et on affiche le récap
+  const goToRecap = () => {
+    setPerformedValues((prev) => ({ ...prev, [currentIndex]: reviewValue }));
+    setRestEndsAt(null);
+    setScreenPhase("recap");
+  };
+
+  const changeRecapValue = (stepIndex: number, value: number) => {
+    setPerformedValues((prev) => ({
+      ...prev,
+      [stepIndex]: Math.max(0, value),
+    }));
+  };
+
   const handleFinishSession = async () => {
-    const finalValues = { ...performedValues, [currentIndex]: reviewValue };
-    await saveSession(finalValues);
+    if (isSaving) return; // évite un double enregistrement si on appuie deux fois
+    setIsSaving(true);
+    try {
+      await saveSession(performedValues);
+    } catch {
+      setIsSaving(false);
+      Alert.alert("Erreur", "La séance n'a pas pu être enregistrée.");
+      return;
+    }
     Alert.alert("Séance enregistrée !", "Bien joué 💪", [
       { text: "OK", onPress: () => router.back() },
     ]);
   };
 
   const handleAbort = () => {
-    const hasAnyProgress = currentIndex > 0 || screenPhase === "review";
+    const hasAnyProgress = currentIndex > 0 || screenPhase !== "exercise";
 
     if (!hasAnyProgress) {
       router.back();
@@ -722,7 +727,7 @@ function SessionRunner({
   // ---- Rendu ----
 
   const completedSteps =
-    screenPhase === "review" ? currentIndex + 1 : currentIndex;
+    screenPhase === "exercise" ? currentIndex : currentIndex + 1;
   const progressPercent = Math.round((completedSteps / steps.length) * 100);
 
   return (
@@ -741,7 +746,7 @@ function SessionRunner({
         <View
           style={[styles.phaseContainer, { paddingBottom: insets.bottom + 24 }]}
         >
-          {screenPhase === "exercise" ? (
+          {screenPhase === "exercise" && (
             <ExercisePhaseView
               step={step}
               exercisePhase={exercisePhase}
@@ -751,7 +756,8 @@ function SessionRunner({
               onFinishReps={handleFinishReps}
               onFinishTimer={handleFinishTimer}
             />
-          ) : (
+          )}
+          {screenPhase === "review" && (
             <ReviewPhaseView
               step={step}
               reviewValue={reviewValue}
@@ -761,7 +767,16 @@ function SessionRunner({
               isLastStep={isLastStep}
               nextStep={isLastStep ? null : steps[currentIndex + 1]}
               onContinue={proceedToNext}
-              onFinishSession={handleFinishSession}
+              onGoToRecap={goToRecap}
+            />
+          )}
+          {screenPhase === "recap" && (
+            <SessionRecap
+              steps={steps}
+              values={performedValues}
+              onChangeValue={changeRecapValue}
+              onSave={handleFinishSession}
+              isSaving={isSaving}
             />
           )}
         </View>

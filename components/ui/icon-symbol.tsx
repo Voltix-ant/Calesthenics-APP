@@ -11,6 +11,8 @@ const MAPPING = {
   "house.fill": "home",
   "speaker.wave.2.fill": "volume-up",
   "speaker.slash.fill": "volume-off",
+  "arrow.up": "arrow-upward",
+  "arrow.down": "arrow-downward",
 } satisfies Record<string, ComponentProps<typeof MaterialIcons>["name"]>;
 
 type IconSymbolName = keyof typeof MAPPING;
