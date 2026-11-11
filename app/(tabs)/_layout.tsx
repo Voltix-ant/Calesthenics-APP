@@ -23,6 +23,15 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="timer"
+        options={{
+          title: "Chrono",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="timer" color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
