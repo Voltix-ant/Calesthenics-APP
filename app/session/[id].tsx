@@ -2,11 +2,9 @@ import { KeyboardAvoidingContainer } from "@/components/keyboard-avoiding-contai
 import { SessionRecap } from "@/components/session-recap";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import type { SessionStep } from "@/types/session";
-import {
-  setAudioModeAsync,
-  useAudioPlayer,
-  useAudioPlayerStatus,
-} from "expo-audio";
+import { formatDuration } from "@/utils/format-duration";
+import { useCountdownBeeps } from "@/hooks/use-countdown-beeps";
+import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import { useKeepAwake } from "expo-keep-awake";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
@@ -50,12 +48,6 @@ type PerfRow = {
 };
 
 const COUNTDOWN_MS = 5000; // décompte avant le chrono d'un exercice "temps"
-
-const formatDuration = (totalSeconds: number) => {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-};
 
 // ---- Sous-composant : écran "exercice en cours" ----
 
@@ -513,23 +505,18 @@ function SessionRunner({
   const isLastStep = currentIndex === steps.length - 1;
 
   // ---- Sons ----
-  const countdownPlayer = useAudioPlayer(
-    require("../../assets/sounds/countdown-start.mp3"),
-  );
-  const countdownPlayerStatus = useAudioPlayerStatus(countdownPlayer);
+  // Bips du décompte : un par seconde à partir de 5, puis un bip différent à 0
+  useCountdownBeeps({
+    countdownStartedAt,
+    countdownMs: COUNTDOWN_MS,
+    enabled: soundEnabled,
+  });
   const targetReachedPlayer = useAudioPlayer(
     require("../../assets/sounds/target-reached.mp3"),
   );
   const restEndPlayer = useAudioPlayer(
     require("../../assets/sounds/rest-end.wav"),
   );
-
-  const playCountdownStart = () => {
-    if (!soundEnabled) return;
-    if (!countdownPlayerStatus.isLoaded) return;
-    countdownPlayer.seekTo(0);
-    countdownPlayer.play();
-  };
 
   // ---- Mode audio : les bips se superposent à la musique sans la couper ----
   useEffect(() => {
@@ -598,7 +585,6 @@ function SessionRunner({
   // ---- Actions ----
 
   const handleStartTimer = () => {
-    playCountdownStart();
     targetBeepPlayedRef.current = false;
     const t = Date.now();
     setNow(t);
