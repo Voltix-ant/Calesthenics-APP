@@ -1,5 +1,7 @@
+import { KeyboardAvoidingContainer } from "@/components/keyboard-avoiding-container";
 import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Modal,
   ScrollView,
@@ -44,6 +46,7 @@ export function ExercisePickerModal({
 
 function ExercisePickerContent({ onClose, onSelectExercise }: PickerProps) {
   const db = useSQLiteContext();
+  const insets = useSafeAreaInsets();
   const [searchText, setSearchText] = useState("");
   const [searchResults, setSearchResults] = useState<ExerciseRow[]>([]);
   const [newExerciseType, setNewExerciseType] = useState<"reps" | "time">(
@@ -79,7 +82,12 @@ function ExercisePickerContent({ onClose, onSelectExercise }: PickerProps) {
   };
 
   return (
-    <View style={styles.modalContainer}>
+    <KeyboardAvoidingContainer
+      style={[
+        styles.modalContainer,
+        { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 },
+      ]}
+    >
       <TextInput
         style={styles.input}
         placeholder="Rechercher un exercice..."
@@ -89,7 +97,7 @@ function ExercisePickerContent({ onClose, onSelectExercise }: PickerProps) {
         autoFocus
       />
 
-      <ScrollView style={styles.flex}>
+      <ScrollView style={styles.flex} keyboardShouldPersistTaps="handled">
         {searchResults.map((exercise) => (
           <TouchableOpacity
             key={exercise.id}
@@ -141,13 +149,13 @@ function ExercisePickerContent({ onClose, onSelectExercise }: PickerProps) {
       <TouchableOpacity onPress={onClose}>
         <Text style={styles.cancelText}>Annuler</Text>
       </TouchableOpacity>
-    </View>
+    </KeyboardAvoidingContainer>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  modalContainer: { flex: 1, padding: 16, paddingTop: 60 },
+  modalContainer: { paddingHorizontal: 16 },
   label: { fontSize: 14, color: "#555", marginBottom: 8 },
   input: {
     borderWidth: 1,
