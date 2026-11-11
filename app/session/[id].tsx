@@ -520,7 +520,7 @@ function SessionRunner({
     require("../../assets/sounds/target-reached.mp3"),
   );
   const restEndPlayer = useAudioPlayer(
-    require("../../assets/sounds/rest-end.mp3"),
+    require("../../assets/sounds/rest-end.wav"),
   );
 
   const playCountdownStart = () => {
@@ -610,6 +610,9 @@ function SessionRunner({
     restBeepPlayedRef.current = false;
     setPerformedValues((prev) => ({ ...prev, [currentIndex]: achievedValue }));
     setReviewValue(achievedValue);
+    // Arrête le chrono : sans heure de départ, la phase redevient "idle" et le
+    // bip "objectif atteint" ne peut plus sonner pendant le repos
+    setCountdownStartedAt(null);
     setRestEndsAt(t + step.restAfterSeconds * 1000);
     setScreenPhase("review");
   };
