@@ -1,7 +1,7 @@
 import { KeyboardAvoidingContainer } from "@/components/keyboard-avoiding-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useCountdownBeeps } from "@/hooks/use-countdown-beeps";
-import { formatDuration } from "@/utils/format-duration";
+import { formatDurationWithHundredths } from "@/utils/format-duration";
 import { setAudioModeAsync } from "expo-audio";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { useFocusEffect } from "expo-router";
@@ -23,7 +23,7 @@ const KEEP_AWAKE_TAG = "timer-screen";
 
 type ChronoEntry = {
   finishedAt: number; // horodatage (ms) de l'appui sur "Terminé"
-  seconds: number;
+  ms: number;
 };
 
 // "14:32"
@@ -59,7 +59,7 @@ function TimerHistory({ entries }: { entries: ChronoEntry[] }) {
                   #{entries.length - index}
                 </Text>
                 <Text style={styles.historyValue}>
-                  {formatDuration(entry.seconds)}
+                  {formatDurationWithHundredths(entry.ms)}
                 </Text>
                 <Text style={styles.historyTime}>
                   {formatClockTime(entry.finishedAt)}
@@ -104,10 +104,10 @@ export default function TimerScreen() {
   const [now, setNow] = useState(() => Date.now());
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [countdownMs, setCountdownMs] = useState(0);
-  const [finalSeconds, setFinalSeconds] = useState<number | null>(null);
+  const [finalMs, setFinalMs] = useState<number | null>(null);
 
   const phase: "idle" | "countdown" | "timing" | "done" =
-    finalSeconds !== null
+    finalMs !== null
       ? "done"
       : startedAt === null
         ? "idle"
@@ -118,9 +118,9 @@ export default function TimerScreen() {
     startedAt === null
       ? 0
       : Math.ceil((countdownMs - (now - startedAt)) / 1000);
-  const elapsedSeconds =
+  const elapsedMs =
     phase === "timing" && startedAt !== null
-      ? Math.floor((now - startedAt - countdownMs) / 1000)
+      ? now - startedAt - countdownMs
       : 0;
 
   // ---- Bips du décompte : un par seconde à partir de 5, puis un autre à 0 ----
@@ -137,17 +137,25 @@ export default function TimerScreen() {
     });
   }, []);
 
-  // ---- Horloge : "now" mis à jour 4 fois par seconde, seulement si le chrono
-  // tourne (inutile de réveiller l'écran pour rien le reste du temps) ----
+  // ---- Horloge : "now" mis à jour à chaque image affichée (~60 fois/s) pour
+  // que les centièmes défilent, seulement pendant que le chrono tourne ----
+  // requestAnimationFrame appelle la fonction juste avant le prochain
+  // rafraîchissement de l'écran ; en la rappelant à chaque fois, on obtient une
+  // boucle calée sur l'écran (et mise en pause automatiquement en arrière-plan).
   const isRunning = phase === "countdown" || phase === "timing";
   useEffect(() => {
     if (!isRunning) return;
-    const interval = setInterval(() => setNow(Date.now()), 250);
+    let frameId = 0;
+    const loop = () => {
+      setNow(Date.now());
+      frameId = requestAnimationFrame(loop);
+    };
+    frameId = requestAnimationFrame(loop);
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") setNow(Date.now());
     });
     return () => {
-      clearInterval(interval);
+      cancelAnimationFrame(frameId);
       subscription.remove();
     };
   }, [isRunning]);
@@ -165,18 +173,18 @@ export default function TimerScreen() {
   };
 
   const handleStop = () => {
-    // Heure exacte plutôt que "elapsedSeconds", qui peut avoir 250 ms de retard
+    // Heure exacte plutôt que "elapsedMs", qui date de la dernière image affichée
     if (startedAt === null) return;
     const t = Date.now();
-    const seconds = Math.floor((t - startedAt - countdownMs) / 1000);
-    setFinalSeconds(seconds);
+    const ms = Math.max(0, t - startedAt - countdownMs);
+    setFinalMs(ms);
     // Le plus récent en premier (nouveau tableau : on ne mute jamais le state)
-    setHistory((prev) => [{ finishedAt: t, seconds }, ...prev]);
+    setHistory((prev) => [{ finishedAt: t, ms }, ...prev]);
   };
 
   const handleReset = () => {
     setStartedAt(null);
-    setFinalSeconds(null);
+    setFinalMs(null);
   };
 
   return (
@@ -229,17 +237,21 @@ export default function TimerScreen() {
 
         {phase === "timing" && (
           <>
-            <Text style={styles.timer}>{formatDuration(elapsedSeconds)}</Text>
+            <Text style={styles.timer}>
+              {formatDurationWithHundredths(elapsedMs)}
+            </Text>
             <TouchableOpacity style={styles.primaryButton} onPress={handleStop}>
               <Text style={styles.primaryButtonText}>Terminé</Text>
             </TouchableOpacity>
           </>
         )}
 
-        {phase === "done" && finalSeconds !== null && (
+        {phase === "done" && finalMs !== null && (
           <>
             <Text style={styles.label}>Temps</Text>
-            <Text style={styles.timer}>{formatDuration(finalSeconds)}</Text>
+            <Text style={styles.timer}>
+              {formatDurationWithHundredths(finalMs)}
+            </Text>
             <TouchableOpacity
               style={styles.primaryButton}
               onPress={handleReset}
@@ -283,7 +295,13 @@ const styles = StyleSheet.create({
   },
   unit: { fontSize: 15, color: "#666" },
   countdown: { fontSize: 64, fontWeight: "bold", color: "#000" },
-  timer: { fontSize: 48, fontWeight: "bold", color: "#000", marginBottom: 24 },
+  timer: {
+    fontSize: 48,
+    fontWeight: "bold",
+    color: "#000",
+    marginBottom: 24,
+    fontVariant: ["tabular-nums"], // chiffres de même largeur : le texte ne tremble pas
+  },
   primaryButton: {
     backgroundColor: "#000",
     paddingVertical: 16,
