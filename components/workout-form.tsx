@@ -2,12 +2,11 @@ import {
   ExercisePickerModal,
   ExerciseRow,
 } from "@/components/exercise-picker-modal";
+import { KeyboardAvoidingContainer } from "@/components/keyboard-avoiding-container";
 import { useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useRef, useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -328,12 +327,12 @@ export function WorkoutForm({
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <KeyboardAvoidingContainer>
       <ScrollView
         style={styles.container}
+        // Sans ça, quand le clavier est ouvert, le 1er appui sur un bouton
+        // ne fait que fermer le clavier au lieu d'activer le bouton
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: insets.bottom + 32 },
@@ -416,12 +415,11 @@ export function WorkoutForm({
         onClose={() => setPickerVisible(false)}
         onSelectExercise={addExerciseBlock}
       />
-    </KeyboardAvoidingView>
+    </KeyboardAvoidingContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
   container: { flex: 1, padding: 16 },
   scrollContent: { paddingBottom: 32 },
   label: { fontSize: 14, color: "#555", marginBottom: 8 },

@@ -1,3 +1,4 @@
+import { KeyboardAvoidingContainer } from "@/components/keyboard-avoiding-container";
 import { SessionRecap } from "@/components/session-recap";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import type { SessionStep } from "@/types/session";
@@ -746,8 +747,8 @@ function SessionRunner({
           topInset={insets.top}
         />
 
-        <View
-          style={[styles.phaseContainer, { paddingBottom: insets.bottom + 24 }]}
+        <KeyboardAvoidingContainer
+          style={{ paddingBottom: insets.bottom + 24 }}
         >
           {screenPhase === "exercise" && (
             <ExercisePhaseView
@@ -782,7 +783,7 @@ function SessionRunner({
               isSaving={isSaving}
             />
           )}
-        </View>
+        </KeyboardAvoidingContainer>
       </View>
     </>
   );
@@ -790,7 +791,6 @@ function SessionRunner({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-  phaseContainer: { flex: 1 },
   topBar: {
     paddingHorizontal: 16,
     paddingBottom: 12,
