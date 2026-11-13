@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Système visuel — Feu &amp; relief</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&amp;family=Barlow:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#171514}
+:root{--up:7px 7px 16px rgba(0,0,0,.6),-6px -6px 14px rgba(255,236,220,.05);--up-sm:4px 4px 9px rgba(0,0,0,.55),-3px -3px 8px rgba(255,236,220,.045);--in:inset 5px 5px 11px rgba(0,0,0,.6),inset -4px -4px 10px rgba(255,236,220,.045);--in-sm:inset 3px 3px 6px rgba(0,0,0,.55),inset -2px -2px 5px rgba(255,236,220,.04);--fire:linear-gradient(135deg,#FFD23F 0%,#FF8A1F 50%,#EE4A2B 100%);--glow:0 12px 28px -8px rgba(255,105,35,.6)}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+input{font:inherit;color:inherit;border:0;outline:none;background:transparent;margin:0}
+.fire-text{background:linear-gradient(135deg,#FFD23F 0%,#FF8A1F 55%,#EE4A2B 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.d{font-family:'Chakra Petch','Segoe UI',sans-serif;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 1180px; height: 844px; box-sizing: border-box; background: #23201E; color: #F4EEE8; font-family: 'Barlow', 'Segoe UI', Roboto, sans-serif; padding: 56px 64px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: auto 1fr; column-gap: 56px; row-gap: 44px">
+
+  <header style="grid-column: 1 / -1; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px">
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <span style="font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #ABA39B">Système visuel</span>
+      <h1 class="d" style="margin: 0; font-weight: 800; font-size: 56px; line-height: 1; letter-spacing: -0.02em">Feu <span class="fire-text">&amp; relief</span></h1>
+    </div>
+    <p style="margin: 0; max-width: 420px; font-size: 16px; line-height: 1.5; color: #ABA39B">Neumorphisme sombre pour les surfaces, le feu réservé à ce qui compte : l'action principale, le temps, la progression.</p>
+  </header>
+
+  <section style="display: flex; flex-direction: column; gap: 22px">
+    <h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #ABA39B">Couleurs</h2>
+    <div style="height: 120px; border-radius: 24px; background: var(--fire); box-shadow: var(--up), var(--glow); padding: 18px 20px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; color: #1A0F0A">
+      <span class="d" style="font-weight: 800; font-size: 20px">Feu</span>
+      <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums">
+        <span>#FFD23F</span><span>#FF8A1F</span><span>#EE4A2B</span>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <span style="width: 48px; height: 48px; border-radius: 16px; background: #23201E; box-shadow: var(--up-sm)"></span>
+        <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600; font-size: 15px">Fond</span><span style="font-size: 13px; color: #968E86">#23201E</span></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px">
+        <span style="width: 48px; height: 48px; border-radius: 16px; background: #F4EEE8; box-shadow: var(--up-sm)"></span>
+        <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600; font-size: 15px">Texte</span><span style="font-size: 13px; color: #968E86">#F4EEE8</span></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px">
+        <span style="width: 48px; height: 48px; border-radius: 16px; background: #ABA39B; box-shadow: var(--up-sm)"></span>
+        <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600; font-size: 15px">Secondaire</span><span style="font-size: 13px; color: #968E86">#ABA39B</span></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px">
+        <span style="width: 48px; height: 48px; border-radius: 16px; background: #968E86; box-shadow: var(--up-sm)"></span>
+        <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600; font-size: 15px">Tertiaire</span><span style="font-size: 13px; color: #968E86">#968E86</span></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px">
+        <span style="width: 48px; height: 48px; border-radius: 16px; background: #9DB3CC; box-shadow: var(--up-sm)"></span>
+        <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600; font-size: 15px">Baisse</span><span style="font-size: 13px; color: #968E86">#9DB3CC</span></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px">
+        <span style="width: 48px; height: 48px; border-radius: 16px; background: #FF7A5C; box-shadow: var(--up-sm)"></span>
+        <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600; font-size: 15px">Destructif</span><span style="font-size: 13px; color: #968E86">#FF7A5C</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 22px">
+    <h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #ABA39B">Typographie</h2>
+    <div style="border-radius: 24px; box-shadow: var(--in); padding: 22px 24px; display: flex; flex-direction: column; gap: 8px">
+      <span style="font-size: 13px; color: #968E86">Chakra Petch · 600–700 — titres, chiffres</span>
+      <span class="d" style="font-weight: 800; font-size: 44px; line-height: 1">Pompes</span>
+      <span class="d fire-text" style="font-weight: 800; font-size: 60px; line-height: 1.05">0:37</span>
+    </div>
+    <div style="border-radius: 24px; box-shadow: var(--in); padding: 22px 24px; display: flex; flex-direction: column; gap: 8px">
+      <span style="font-size: 13px; color: #968E86">Barlow · 400–600 — textes, libellés</span>
+      <span style="font-size: 20px; font-weight: 600">Record sur cette série : 14 reps</span>
+      <span style="font-size: 16px; color: #ABA39B; line-height: 1.45">Chiffres tabulaires partout : le chrono ne « danse » pas quand il défile.</span>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 22px">
+    <h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #ABA39B">Surfaces &amp; contrôles</h2>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px">
+      <div style="height: 84px; border-radius: 22px; background: linear-gradient(145deg, #282422, #1F1C1A); box-shadow: var(--up); display: grid; place-items: center; font-size: 14px; font-weight: 600; color: #ABA39B">Relief · exercice</div>
+      <div style="height: 84px; border-radius: 22px; box-shadow: var(--in); display: grid; place-items: center; font-size: 14px; font-weight: 600; color: #ABA39B">Creux · repos</div>
+    </div>
+    <button style="height: 60px; border-radius: 20px; background: var(--fire); box-shadow: var(--up-sm), var(--glow); color: #1A0F0A"><span class="d" style="font-weight: 800; font-size: 16px; font-stretch: 112%">Action principale</span></button>
+    <button style="height: 54px; border-radius: 18px; background: #23201E; box-shadow: var(--up-sm); color: #F4EEE8; font-weight: 600; font-size: 16px">Action secondaire</button>
+
+    <div style="display: flex; align-items: center; gap: 12px">
+      <button aria-label="Moins" style="width: 52px; height: 52px; border-radius: 50%; box-shadow: var(--up-sm); display: grid; place-items: center; color: #F4EEE8"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"></path></svg></button>
+      <input aria-label="Valeur" class="d" value="11" style="width: 84px; height: 52px; border-radius: 16px; box-shadow: var(--in-sm); text-align: center; font-weight: 800; font-size: 24px">
+      <button aria-label="Plus" style="width: 52px; height: 52px; border-radius: 50%; box-shadow: var(--up-sm); display: grid; place-items: center; color: #F4EEE8"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></button>
+      <span style="font-size: 16px; color: #ABA39B">reps</span>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 10px">
+      <span style="display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 12px; border-radius: 999px; background: var(--fire); color: #1A0F0A; font-weight: 700; font-size: 14px"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"></path><path d="m5 12 7-7 7 7"></path></svg>+2</span>
+      <span style="display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 12px; border-radius: 999px; box-shadow: var(--in-sm); color: #9DB3CC; font-weight: 700; font-size: 14px"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path></svg>−1</span>
+      <span style="display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border-radius: 999px; box-shadow: var(--in-sm); color: #ABA39B; font-weight: 700; font-size: 15px">=</span>
+      <span style="display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 999px; box-shadow: var(--up-sm); color: #FFC24A; font-weight: 700; font-size: 13px">1ʳᵉ fois</span>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1180,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Chrono seul</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&amp;family=Barlow:wght@400;500;600;700&amp;display=swap">
+<style>
+@font-face{font-family:'DSEG7 Modern';src:url('/_blob/610679c7609330780aadecad3f523a39') format('woff2');font-weight:700;font-style:normal;font-display:swap}
+body{margin:0;background:#171514}
+:root{--up:7px 7px 16px rgba(0,0,0,.6),-6px -6px 14px rgba(255,236,220,.05);--up-sm:4px 4px 9px rgba(0,0,0,.55),-3px -3px 8px rgba(255,236,220,.045);--in:inset 5px 5px 11px rgba(0,0,0,.6),inset -4px -4px 10px rgba(255,236,220,.045);--in-sm:inset 3px 3px 6px rgba(0,0,0,.55),inset -2px -2px 5px rgba(255,236,220,.04);--fire:linear-gradient(135deg,#FFD23F 0%,#FF8A1F 50%,#EE4A2B 100%);--glow:0 12px 28px -8px rgba(255,105,35,.6)}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+input{font:inherit;color:inherit;border:0;outline:none;background:transparent;margin:0}
+.fire-text{background:linear-gradient(135deg,#FFD23F 0%,#FF8A1F 55%,#EE4A2B 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.d{font-family:'Chakra Petch','Segoe UI',sans-serif;font-variant-numeric:tabular-nums}
+.seg{font-family:'DSEG7 Modern','Courier New',monospace;font-weight:700;line-height:1;white-space:nowrap}
+.ghost{color:rgba(255,236,220,.055)}
+@keyframes pop{0%{opacity:0;transform:scale(.6)}60%{transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
+@keyframes beat{0%{box-shadow:0 0 0 0 rgba(255,120,40,.55)}100%{box-shadow:0 0 0 34px rgba(255,120,40,0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.pop{animation:pop .45s cubic-bezier(.3,1.4,.5,1) both}
+.beat{animation:beat 1s ease-out infinite}
+.spin{animation:spin 1s linear infinite}
+.rise{animation:rise .4s ease-out both}
+.press{transition:transform .1s}
+.press:active{transform:scale(.97)}
+.hist::-webkit-scrollbar{width:4px}.hist::-webkit-scrollbar-thumb{background:#3A3532;border-radius:4px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #23201E; color: #F4EEE8; font-family: 'Barlow', 'Segoe UI', Roboto, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <header style="padding: 48px 20px 0 24px; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+    <h1 class="d" style="margin: 0; font-weight: 700; font-size: 30px; line-height: 1.1">Chrono</h1>
+    <button aria-label="{{soundLabel}}" onClick="{{toggleSound}}" class="press" style="width: 48px; height: 48px; border-radius: 50%; box-shadow: var(--up-sm); display: grid; place-items: center; color: {{soundColor}}">
+      <sc-if value="{{sound}}" hint-placeholder-val="{{ true }}">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path><path d="M16 9a5 5 0 0 1 0 6"></path><path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path></svg>
+      </sc-if>
+      <sc-if value="{{muted}}" hint-placeholder-val="{{ false }}">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.702a.7.7 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.7.7 0 0 0 11 19.298z"></path><path d="m16.5 14.5 5-5"></path><path d="m16.5 9.5 5 5"></path></svg>
+      </sc-if>
+    </button>
+  </header>
+
+  <main style="flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; padding: 22px 24px 0; gap: 24px">
+    <div style="position: relative; width: 280px; height: 280px; border-radius: 50%; background: linear-gradient(145deg, #282422, #1E1B19); box-shadow: var(--up); display: grid; place-items: center">
+      <sc-if value="{{isCount}}" hint-placeholder-val="{{ false }}">
+        <div class="beat" style="position: absolute; inset: 0; border-radius: 50%"></div>
+      </sc-if>
+      <sc-if value="{{isRun}}" hint-placeholder-val="{{ false }}">
+        <svg aria-hidden="true" class="spin" width="280" height="280" viewBox="0 0 280 280" style="position: absolute; inset: 0">
+          <defs><linearGradient id="spinfire" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFD23F"></stop><stop offset="1" stop-color="#EE4A2B"></stop></linearGradient></defs>
+          <circle cx="140" cy="140" r="130" fill="none" stroke="url(#spinfire)" stroke-width="5" stroke-linecap="round" stroke-dasharray="110 707" style="filter: drop-shadow(0 0 6px rgba(255,130,40,.7))"></circle>
+        </svg>
+      </sc-if>
+      <div style="width: 232px; height: 232px; border-radius: 50%; background: #23201E; box-shadow: var(--in); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; position: relative">
+        <sc-if value="{{isReady}}" hint-placeholder-val="{{ true }}">
+          <label for="decompte" style="font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #ABA39B">Décompte</label>
+          <input id="decompte" inputmode="numeric" class="d fire-text" value="{{dec}}" onChange="{{onDec}}" style="width: 140px; text-align: center; font-weight: 700; font-size: 80px; line-height: 1.05">
+          <span style="font-size: 15px; font-weight: 500; color: #ABA39B">sec</span>
+        </sc-if>
+        <sc-if value="{{isCount}}" hint-placeholder-val="{{ false }}">
+          <span aria-live="assertive" class="d fire-text" style="font-weight: 700; font-size: 120px; line-height: 1">{{count}}</span>
+        </sc-if>
+        <sc-if value="{{isRun}}" hint-placeholder-val="{{ false }}">
+          <div role="timer" aria-label="{{t.label}}" style="display: flex; align-items: flex-end; gap: 5px">
+            <span style="display: grid">
+              <span class="seg ghost" aria-hidden="true" style="grid-area: 1 / 1; font-size: {{t.size}}px">{{t.ghostMain}}</span>
+              <span class="seg fire-text" style="grid-area: 1 / 1; font-size: {{t.size}}px">{{t.main}}</span>
+            </span>
+            <span style="display: grid">
+              <span class="seg ghost" aria-hidden="true" style="grid-area: 1 / 1; font-size: {{t.csSize}}px">88</span>
+              <span class="seg" style="grid-area: 1 / 1; font-size: {{t.csSize}}px; color: #ABA39B">{{t.cs}}</span>
+            </span>
+          </div>
+        </sc-if>
+        <sc-if value="{{isDone}}" hint-placeholder-val="{{ false }}">
+          <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #ABA39B">Temps</span>
+          <div class="pop" aria-label="{{f.label}}" style="display: flex; align-items: flex-end; gap: 5px">
+            <span style="display: grid">
+              <span class="seg ghost" aria-hidden="true" style="grid-area: 1 / 1; font-size: {{f.size}}px">{{f.ghostMain}}</span>
+              <span class="seg fire-text" style="grid-area: 1 / 1; font-size: {{f.size}}px">{{f.main}}</span>
+            </span>
+            <span style="display: grid">
+              <span class="seg ghost" aria-hidden="true" style="grid-area: 1 / 1; font-size: {{f.csSize}}px">88</span>
+              <span class="seg" style="grid-area: 1 / 1; font-size: {{f.csSize}}px; color: #ABA39B">{{f.cs}}</span>
+            </span>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+
+    <div style="width: 100%; height: 62px">
+      <sc-if value="{{isReady}}" hint-placeholder-val="{{ true }}">
+        <button class="press" onClick="{{start}}" style="width: 100%; height: 62px; border-radius: 20px; background: var(--fire); box-shadow: var(--up-sm), var(--glow); color: #1A0F0A; display: flex; align-items: center; justify-content: center; gap: 10px">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"></path></svg>
+          <span class="d" style="font-weight: 700; font-size: 17px">Lancer le chrono</span>
+        </button>
+      </sc-if>
+      <sc-if value="{{isRun}}" hint-placeholder-val="{{ false }}">
+        <button class="press pop" onClick="{{finish}}" style="width: 100%; height: 62px; border-radius: 20px; background: var(--fire); box-shadow: var(--up-sm), var(--glow); color: #1A0F0A; display: flex; align-items: center; justify-content: center; gap: 10px">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect width="18" height="18" x="3" y="3" rx="2"></rect></svg>
+          <span class="d" style="font-weight: 700; font-size: 17px">Terminé</span>
+        </button>
+      </sc-if>
+      <sc-if value="{{isDone}}" hint-placeholder-val="{{ false }}">
+        <button class="press pop" onClick="{{restart}}" style="width: 100%; height: 62px; border-radius: 20px; background: #23201E; box-shadow: var(--up-sm); display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 600; font-size: 17px">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF8A1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+          Recommencer
+        </button>
+      </sc-if>
+    </div>
+
+    <section style="width: 100%; border-radius: 22px; box-shadow: var(--in); padding: 6px 16px 10px; box-sizing: border-box">
+      <button aria-expanded="{{open}}" onClick="{{toggleHist}}" style="width: 100%; min-height: 50px; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+        <span style="font-weight: 600; font-size: 16px">Historique <span style="color: #ABA39B">({{histCount}})</span></span>
+        <sc-if value="{{open}}" hint-placeholder-val="{{ true }}">
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8A1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"></path></svg>
+        </sc-if>
+        <sc-if value="{{closed}}" hint-placeholder-val="{{ false }}">
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#968E86" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+        </sc-if>
+      </button>
+      <sc-if value="{{open}}" hint-placeholder-val="{{ true }}">
+        <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+          <p style="margin: 0; padding: 10px 0 6px; font-size: 15px; color: #968E86">Aucun chrono pour l'instant.</p>
+        </sc-if>
+        <ul class="hist" style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; max-height: 132px; overflow-y: auto">
+          <sc-for list="{{hist}}" as="item" hint-placeholder-count="3">
+            <li class="rise" style="min-height: 44px; display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 8px; border-top: 1px solid rgba(255,236,220,.06)">
+              <span style="font-size: 14px; font-weight: 600; color: #968E86">#{{item.n}}</span>
+              <span class="d" style="font-weight: 700; font-size: 18px">{{item.t}}</span>
+              <span style="font-size: 14px; color: #ABA39B; font-variant-numeric: tabular-nums">{{item.h}}</span>
+            </li>
+          </sc-for>
+        </ul>
+      </sc-if>
+    </section>
+  </main>
+
+  <nav aria-label="Navigation principale" style="margin: 12px 16px 18px; padding: 8px; border-radius: 26px; background: #23201E; box-shadow: var(--up); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+    <button style="height: 56px; border-radius: 19px; display: flex; align-items: center; justify-content: center; gap: 10px; color: #968E86; font-weight: 600; font-size: 15px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+      Home
+    </button>
+    <button aria-current="page" style="height: 56px; border-radius: 19px; box-shadow: var(--in); display: flex; align-items: center; justify-content: center; gap: 10px; color: #FFB23F; font-weight: 600; font-size: 15px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="url(#tabfire2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><defs><linearGradient id="tabfire2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFD23F"></stop><stop offset="0.55" stop-color="#FF8A1F"></stop><stop offset="1" stop-color="#EE4A2B"></stop></linearGradient></defs><line x1="10" x2="14" y1="2" y2="2"></line><line x1="12" x2="15" y1="14" y2="11"></line><circle cx="12" cy="14" r="8"></circle></svg>
+      Chrono
+    </button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  st() {
+    return Object.assign({
+      phase: 'ready', dec: '5', count: 5, ms: 0, finalMs: 0, open: true, sound: true,
+      hist: [
+        { n: 3, t: '1:23.45', h: '14:32' },
+        { n: 2, t: '0:58.10', h: '14:21' },
+        { n: 1, t: '1:02.87', h: '14:09' }
+      ]
+    }, this.state || {});
+  }
+  fmt(ms) {
+    const p = (x) => String(x).padStart(2, '0');
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor(ms / 60000) % 60;
+    const s = Math.floor(ms / 1000) % 60;
+    const c = Math.floor(ms / 10) % 100;
+    return (h > 0 ? h + ':' + p(m) : String(m)) + ':' + p(s) + '.' + p(c);
+  }
+  seg(ms) {
+    const p = (x) => String(x).padStart(2, '0');
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor(ms / 60000) % 60;
+    const s = Math.floor(ms / 1000) % 60;
+    const c = Math.floor(ms / 10) % 100;
+    const main = (h > 0 ? h + ':' + p(m) : String(m)) + ':' + p(s) + '.';
+    const size = h >= 10 ? 30 : (h > 0 ? 36 : 46);
+    return {
+      main: main,
+      ghostMain: main.replace(/\d/g, '8'),
+      cs: p(c),
+      size: size,
+      csSize: Math.round(size * 0.5),
+      label: (h > 0 ? h + ' heures ' : '') + m + ' minutes ' + s + ' secondes ' + c + ' centièmes'
+    };
+  }
+  run() {
+    this.t0 = Date.now();
+    this.setState({ phase: 'running', ms: 0 });
+    clearInterval(this.rt);
+    this.rt = setInterval(() => this.setState({ ms: Date.now() - this.t0 }), 31);
+  }
+  componentWillUnmount() {
+    clearInterval(this.cd);
+    clearInterval(this.rt);
+  }
+  renderVals() {
+    const s = this.st();
+    return {
+      isReady: s.phase === 'ready',
+      isCount: s.phase === 'countdown',
+      isRun: s.phase === 'running',
+      isDone: s.phase === 'done',
+      dec: s.dec,
+      count: s.count,
+      t: this.seg(s.ms),
+      f: this.seg(s.finalMs),
+      open: s.open,
+      closed: !s.open,
+      sound: s.sound,
+      muted: !s.sound,
+      soundLabel: s.sound ? 'Couper les bips' : 'Activer les bips',
+      soundColor: s.sound ? '#FFB23F' : '#968E86',
+      hist: s.hist,
+      histCount: s.hist.length,
+      empty: s.hist.length === 0,
+      onDec: (e) => this.setState({ dec: String(e.target.value).replace(/\D/g, '').slice(0, 3) }),
+      toggleSound: () => this.setState({ sound: !this.st().sound }),
+      toggleHist: () => this.setState({ open: !this.st().open }),
+      start: () => {
+        const d = parseInt(this.st().dec, 10) || 0;
+        if (d <= 0) { this.run(); return; }
+        this.setState({ phase: 'countdown', count: d });
+        clearInterval(this.cd);
+        this.cd = setInterval(() => {
+          const c = this.st().count - 1;
+          if (c <= 0) { clearInterval(this.cd); this.run(); }
+          else this.setState({ count: c });
+        }, 1000);
+      },
+      finish: () => {
+        clearInterval(this.rt);
+        const ms = Date.now() - this.t0;
+        const now = new Date();
+        const p = (x) => String(x).padStart(2, '0');
+        const cur = this.st().hist;
+        this.setState({
+          phase: 'done',
+          finalMs: ms,
+          hist: [{ n: cur.length + 1, t: this.fmt(ms), h: p(now.getHours()) + ':' + p(now.getMinutes()) }].concat(cur)
+        });
+      },
+      restart: () => this.setState({ phase: 'ready' })
+    };
+  }
+}
+</script>
+</body>
+</html>
