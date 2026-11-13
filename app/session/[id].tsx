@@ -214,10 +214,6 @@ function SessionRunner({
         : "timing";
   const timingStartedAt =
     countdownStartedAt === null ? null : countdownStartedAt + COUNTDOWN_MS;
-  const countdownValue =
-    countdownStartedAt === null
-      ? 5
-      : Math.max(0, 5 - Math.floor((now - countdownStartedAt) / 1000));
   const elapsedSeconds =
     exercisePhase === "timing" && timingStartedAt !== null
       ? Math.floor((now - timingStartedAt) / 1000)
@@ -472,7 +468,7 @@ function SessionRunner({
             <ExercisePhaseView
               step={step}
               exercisePhase={exercisePhase}
-              countdownValue={countdownValue}
+              countdownStartedAt={countdownStartedAt}
               elapsedSeconds={elapsedSeconds}
               onStartTimer={handleStartTimer}
               onFinishReps={handleFinishReps}

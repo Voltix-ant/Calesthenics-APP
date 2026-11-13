@@ -1,6 +1,13 @@
 import { Check, Play, Square } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import Animated, {
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useDerivedValue,
+  useReducedMotion,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Chip } from "@/components/ui/chip";
@@ -18,6 +25,7 @@ import {
   screenBottom,
   shadows,
 } from "@/constants/theme";
+import { useSecondCycle } from "@/hooks/use-second-cycle";
 import type { SessionStep } from "@/types/session";
 import { formatDuration } from "@/utils/format-duration";
 
@@ -104,14 +112,47 @@ function ReadyView({
 
 // ---- Décompte 5 → 1 avant le chrono ----
 
+const COUNTDOWN_SECONDS = 5;
+// Courbe CSS « ease-out » de l'onde
+const EASE_OUT = Easing.bezierFn(0, 0, 0.58, 1);
+
 function CountdownView({
   step,
-  countdownValue,
+  startedAt,
 }: {
   step: SessionStep;
-  countdownValue: number;
+  startedAt: number;
 }) {
   const insets = useSafeAreaInsets();
+  const reducedMotion = useReducedMotion();
+  const { cycle, second } = useSecondCycle(startedAt, !reducedMotion);
+  const digit = Math.max(1, COUNTDOWN_SECONDS - second);
+
+  // Chiffre : arrive en 1,45× → 1× (0–0,2 s), rétrécit à 0,94× (jusqu'à
+  // 0,8 s), puis s'efface en rétrécissant à 0,7× (jusqu'à 1 s).
+  const digitStyle = useAnimatedStyle(() => {
+    const t = cycle.value;
+    return {
+      opacity: interpolate(t, [0, 0.2, 0.8, 1], [0, 1, 1, 0]),
+      transform: [
+        { scale: interpolate(t, [0, 0.2, 0.8, 1], [1.45, 1, 0.94, 0.7]) },
+      ],
+    };
+  });
+
+  // Anneau : se vide entièrement en une seconde.
+  const ringProgress = useDerivedValue(() => 1 - cycle.value);
+
+  // Onde : un anneau orange qui s'élargit de 0 à 40 dp autour du disque en
+  // s'effaçant. Dans la maquette c'est une ombre CSS avec « spread » ; ici,
+  // un disque orange derrière le cadran, qu'on agrandit (même rendu).
+  const beatStyle = useAnimatedStyle(() => {
+    const t = EASE_OUT(cycle.value);
+    return {
+      opacity: 1 - t,
+      transform: [{ scale: 1 + (t * 40) / 145 }],
+    };
+  });
 
   return (
     <View
@@ -132,23 +173,30 @@ function CountdownView({
       </View>
 
       <View
-        style={styles.countdownDial}
+        style={styles.countdownWrapper}
         accessibilityLiveRegion="assertive"
-        accessibilityLabel={countdownValue.toString()}
+        accessibilityLabel={digit.toString()}
       >
-        <Ring
-          id="countdown"
-          size={290}
-          radius={133}
-          strokeWidth={6}
-          trackColor="#191716"
-          progress={1}
-        />
-        <Neu variant="in" style={styles.countdownInner}>
-          <GradientText style={styles.countdownDigit}>
-            {countdownValue.toString()}
-          </GradientText>
-        </Neu>
+        {!reducedMotion && (
+          <Animated.View style={[styles.countdownBeat, beatStyle]} />
+        )}
+        <View style={styles.countdownDial}>
+          <Ring
+            id="countdown"
+            size={290}
+            radius={133}
+            strokeWidth={6}
+            trackColor="#191716"
+            progress={reducedMotion ? 1 : ringProgress}
+          />
+          <Neu variant="in" style={styles.countdownInner}>
+            <Animated.View style={reducedMotion ? undefined : digitStyle}>
+              <GradientText style={styles.countdownDigit}>
+                {digit.toString()}
+              </GradientText>
+            </Animated.View>
+          </Neu>
+        </View>
       </View>
     </View>
   );
@@ -228,7 +276,7 @@ function TimingView({
 export function ExercisePhaseView({
   step,
   exercisePhase,
-  countdownValue,
+  countdownStartedAt,
   elapsedSeconds,
   onStartTimer,
   onFinishReps,
@@ -236,7 +284,8 @@ export function ExercisePhaseView({
 }: {
   step: SessionStep;
   exercisePhase: "idle" | "countdown" | "timing";
-  countdownValue: number;
+  /** Heure de début du décompte (null tant qu'il n'est pas lancé) */
+  countdownStartedAt: number | null;
   elapsedSeconds: number;
   onStartTimer: () => void;
   onFinishReps: () => void;
@@ -253,8 +302,8 @@ export function ExercisePhaseView({
     );
   }
 
-  if (exercisePhase === "countdown") {
-    return <CountdownView step={step} countdownValue={countdownValue} />;
+  if (exercisePhase === "countdown" && countdownStartedAt !== null) {
+    return <CountdownView step={step} startedAt={countdownStartedAt} />;
   }
 
   if (exercisePhase === "timing") {
@@ -339,6 +388,19 @@ const styles = StyleSheet.create({
   objectiveRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   objectiveLine: { ...body(400), color: colors.textSecondary },
   objectiveStrong: { ...body(700), color: colors.text },
+  countdownWrapper: {
+    width: 290,
+    height: 290,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  countdownBeat: {
+    position: "absolute",
+    width: 290,
+    height: 290,
+    borderRadius: 145,
+    backgroundColor: "rgba(255,120,40,0.5)",
+  },
   countdownDial: {
     width: 290,
     height: 290,

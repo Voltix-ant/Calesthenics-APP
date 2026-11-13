@@ -1,4 +1,8 @@
 import { StyleSheet } from "react-native";
+import Animated, {
+  useAnimatedProps,
+  type SharedValue,
+} from "react-native-reanimated";
 import Svg, {
   Circle,
   Defs,
@@ -10,13 +14,59 @@ import Svg, {
 
 import { fireStops } from "@/constants/theme";
 
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+type ArcProps = {
+  center: number;
+  radius: number;
+  strokeWidth: number;
+  circumference: number;
+  opacity?: number;
+  gradientUrl: string;
+  filterUrl?: string;
+};
+
+// Arc piloté par une valeur animée : seul le décalage du trait
+// (strokeDashoffset) change, sur le thread de l'interface, sans rendu React.
+function AnimatedArc({
+  progress,
+  circumference,
+  center,
+  radius,
+  strokeWidth,
+  opacity,
+  gradientUrl,
+  filterUrl,
+}: ArcProps & { progress: SharedValue<number> }) {
+  const animatedProps = useAnimatedProps(() => {
+    const p = Math.max(0, Math.min(1, progress.value));
+    return { strokeDashoffset: (1 - p) * circumference };
+  });
+
+  return (
+    <AnimatedCircle
+      animatedProps={animatedProps}
+      cx={center}
+      cy={center}
+      r={radius}
+      fill="none"
+      stroke={gradientUrl}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeDasharray={`${circumference} ${circumference}`}
+      opacity={opacity}
+      filter={filterUrl}
+    />
+  );
+}
+
 type RingProps = {
   /** Côté du carré SVG (dp) */
   size: number;
   radius: number;
   strokeWidth: number;
-  /** Part de l'anneau remplie, de 0 à 1 */
-  progress: number;
+  /** Part de l'anneau remplie, de 0 à 1 (valeur fixe ou animée) */
+  progress: number | SharedValue<number>;
   /** Couleur de la piste sous l'anneau (absente : pas de piste) */
   trackColor?: string;
   opacity?: number;
@@ -28,8 +78,8 @@ type RingProps = {
 
 /**
  * Anneau de progression en dégradé feu, posé en absolu sur son parent.
- * Le remplissage se fait avec `strokeDasharray` : un trait de longueur
- * `progress × circonférence`, puis un vide. Comme dans les maquettes, tout le
+ * Le remplissage se fait avec un trait pointillé dont le premier tiret fait
+ * `progress × circonférence`. Comme dans les maquettes, tout le
  * SVG est tourné de −90° pour que l'anneau parte du haut.
  */
 export function Ring({
@@ -44,7 +94,15 @@ export function Ring({
 }: RingProps) {
   const center = size / 2;
   const circumference = 2 * Math.PI * radius;
-  const filled = Math.max(0, Math.min(1, progress)) * circumference;
+  const arc: ArcProps = {
+    center,
+    radius,
+    strokeWidth,
+    circumference,
+    opacity,
+    gradientUrl: `url(#${id}-fire)`,
+    filterUrl: glow ? `url(#${id}-glow)` : undefined,
+  };
 
   return (
     <Svg
@@ -89,18 +147,22 @@ export function Ring({
           strokeWidth={strokeWidth}
         />
       )}
-      <Circle
-        cx={center}
-        cy={center}
-        r={radius}
-        fill="none"
-        stroke={`url(#${id}-fire)`}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeDasharray={`${filled} ${circumference}`}
-        opacity={opacity}
-        filter={glow ? `url(#${id}-glow)` : undefined}
-      />
+      {typeof progress === "number" ? (
+        <Circle
+          cx={center}
+          cy={center}
+          r={radius}
+          fill="none"
+          stroke={arc.gradientUrl}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={`${Math.max(0, Math.min(1, progress)) * circumference} ${circumference}`}
+          opacity={opacity}
+          filter={arc.filterUrl}
+        />
+      ) : (
+        <AnimatedArc progress={progress} {...arc} />
+      )}
     </Svg>
   );
 }
