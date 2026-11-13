@@ -1,12 +1,17 @@
 import { Check, Play, Square } from "lucide-react-native";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, {
+  cancelAnimation,
   Easing,
   interpolate,
   useAnimatedStyle,
   useDerivedValue,
+  useFrameCallback,
   useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -204,18 +209,53 @@ function CountdownView({
 
 // ---- Chrono qui monte (pas de limite) ----
 
+// Courbe CSS « ease-in-out » du halo
+const HALO_EASING = Easing.bezier(0.42, 0, 0.58, 1);
+
 function TimingView({
   step,
+  startedAt,
   elapsedSeconds,
   onFinish,
 }: {
   step: SessionStep;
+  /** Heure de départ du chrono (fin du décompte) */
+  startedAt: number;
   elapsedSeconds: number;
   onFinish: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const reducedMotion = useReducedMotion();
   const reached = elapsedSeconds >= step.targetValue;
-  const progress = step.targetValue > 0 ? elapsedSeconds / step.targetValue : 1;
+  const targetMs = step.targetValue * 1000;
+
+  // Anneau : recalculé à chaque image à partir de l'heure de départ, il
+  // avance donc en continu (et non par crans d'une seconde) vers l'objectif.
+  const progress = useSharedValue(0);
+  useFrameCallback(() => {
+    "worklet";
+    progress.value = targetMs > 0 ? (Date.now() - startedAt) / targetMs : 1;
+  }, !reducedMotion);
+  const staticProgress =
+    step.targetValue > 0 ? elapsedSeconds / step.targetValue : 1;
+
+  // Halo une fois l'objectif atteint : pulse entre une lueur douce et une
+  // lueur forte (aller 0,7 s, retour 0,7 s). Une ombre ne s'anime pas
+  // directement : on superpose les deux lueurs et on fait varier leur
+  // opacité en sens inverse.
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    if (reached && !reducedMotion) {
+      pulse.value = withRepeat(
+        withTiming(1, { duration: 700, easing: HALO_EASING }),
+        -1,
+        true,
+      );
+    }
+    return () => cancelAnimation(pulse);
+  }, [reached, reducedMotion, pulse]);
+  const softHaloStyle = useAnimatedStyle(() => ({ opacity: 1 - pulse.value }));
+  const strongHaloStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
 
   return (
     <View
@@ -232,14 +272,25 @@ function TimingView({
       </View>
 
       <View style={styles.timerDial}>
-        {reached && <View style={styles.timerHalo} />}
+        {reached && (
+          <>
+            <Animated.View style={[styles.timerHalo, softHaloStyle]} />
+            <Animated.View
+              style={[
+                styles.timerHalo,
+                styles.timerHaloStrong,
+                strongHaloStyle,
+              ]}
+            />
+          </>
+        )}
         <Ring
           id="timer"
           size={300}
           radius={128}
           strokeWidth={16}
           trackColor="#191716"
-          progress={progress}
+          progress={reducedMotion ? staticProgress : progress}
           glow
         />
         <View style={styles.timerInner}>
@@ -306,10 +357,11 @@ export function ExercisePhaseView({
     return <CountdownView step={step} startedAt={countdownStartedAt} />;
   }
 
-  if (exercisePhase === "timing") {
+  if (exercisePhase === "timing" && countdownStartedAt !== null) {
     return (
       <TimingView
         step={step}
+        startedAt={countdownStartedAt + COUNTDOWN_SECONDS * 1000}
         elapsedSeconds={elapsedSeconds}
         onFinish={onFinishTimer}
       />
@@ -436,8 +488,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     borderRadius: 150,
-    // Valeur de départ de l'animation « halo » (objectif atteint)
+    // Lueur douce de l'animation « halo » (objectif atteint)
     boxShadow: "0 0 30px 2px rgba(255,140,40,0.35)",
+  },
+  timerHaloStrong: {
+    // Lueur forte, au milieu de l'animation
+    boxShadow: "0 0 60px 10px rgba(255,140,40,0.7)",
   },
   timerInner: {
     width: 220,
