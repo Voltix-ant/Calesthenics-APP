@@ -205,7 +205,6 @@ function SessionRunner({
   // La phase de l'exercice "temps" se déduit de l'heure de début du décompte :
   // rien lancé -> "idle", moins de 5 s écoulées -> "countdown", sinon -> "timing".
   // Le chrono démarre donc exactement 5 s après le début du décompte.
-  const sessionElapsedSeconds = Math.floor((now - sessionStartedAt) / 1000);
   const exercisePhase: "idle" | "countdown" | "timing" =
     countdownStartedAt === null
       ? "idle"
@@ -248,10 +247,12 @@ function SessionRunner({
     });
   }, []);
 
-  // ---- Horloge commune : met à jour "now" 4 fois par seconde ----
+  // ---- Horloge commune : met à jour "now" 10 fois par seconde ----
+  // Elle sert à la logique (changements de phase, bips). Les chiffres affichés
+  // ont chacun leur propre horloge, calée sur les images (hooks/use-second-cycle).
   // + resynchronisation immédiate quand on revient sur l'appli
   useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 250);
+    const interval = setInterval(() => setNow(Date.now()), 100);
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") setNow(Date.now());
     });
@@ -330,7 +331,7 @@ function SessionRunner({
 
   const handleFinishTimer = () => {
     // On recalcule avec l'heure exacte plutôt que d'utiliser "elapsedSeconds",
-    // qui peut avoir jusqu'à 250 ms de retard
+    // qui peut avoir jusqu'à 100 ms de retard
     const seconds =
       timingStartedAt !== null
         ? Math.floor((Date.now() - timingStartedAt) / 1000)
@@ -456,7 +457,7 @@ function SessionRunner({
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundImage: backgroundGlow }]}>
         <SessionTopBar
-          elapsedSeconds={sessionElapsedSeconds}
+          startedAt={sessionStartedAt}
           progressPercent={progressPercent}
           soundEnabled={soundEnabled}
           onToggleSound={() => setSoundEnabled((v) => !v)}
@@ -469,7 +470,6 @@ function SessionRunner({
               step={step}
               exercisePhase={exercisePhase}
               countdownStartedAt={countdownStartedAt}
-              elapsedSeconds={elapsedSeconds}
               onStartTimer={handleStartTimer}
               onFinishReps={handleFinishReps}
               onFinishTimer={handleFinishTimer}
@@ -481,7 +481,7 @@ function SessionRunner({
               reviewValue={reviewValue}
               onChangeReviewValue={setReviewValue}
               onAdjustReviewValue={adjustReviewValue}
-              restRemaining={restRemaining}
+              restEndsAt={restEndsAt}
               isLastStep={isLastStep}
               nextStep={isLastStep ? null : steps[currentIndex + 1]}
               onContinue={proceedToNext}

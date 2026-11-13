@@ -1,8 +1,7 @@
 import { Check, Play, Square } from "lucide-react-native";
-import { useEffect, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, {
-  cancelAnimation,
   Easing,
   interpolate,
   useAnimatedStyle,
@@ -10,8 +9,6 @@ import Animated, {
   useFrameCallback,
   useReducedMotion,
   useSharedValue,
-  withRepeat,
-  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -30,6 +27,7 @@ import {
   screenBottom,
   shadows,
 } from "@/constants/theme";
+import { usePulse } from "@/hooks/use-pulse";
 import { useSecondCycle } from "@/hooks/use-second-cycle";
 import type { SessionStep } from "@/types/session";
 import { formatDuration } from "@/utils/format-duration";
@@ -209,24 +207,22 @@ function CountdownView({
 
 // ---- Chrono qui monte (pas de limite) ----
 
-// Courbe CSS « ease-in-out » du halo
-const HALO_EASING = Easing.bezier(0.42, 0, 0.58, 1);
-
 function TimingView({
   step,
   startedAt,
-  elapsedSeconds,
   onFinish,
 }: {
   step: SessionStep;
   /** Heure de départ du chrono (fin du décompte) */
   startedAt: number;
-  elapsedSeconds: number;
   onFinish: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
-  const reached = elapsedSeconds >= step.targetValue;
+  // Horloge de l'affichage, calée sur les images : les secondes affichées
+  // durent toutes exactement une seconde. `cycle` fait tourner le point.
+  const { cycle, second } = useSecondCycle(startedAt, !reducedMotion);
+  const reached = second >= step.targetValue;
   const targetMs = step.targetValue * 1000;
 
   // Anneau : recalculé à chaque image à partir de l'heure de départ, il
@@ -236,24 +232,18 @@ function TimingView({
     "worklet";
     progress.value = targetMs > 0 ? (Date.now() - startedAt) / targetMs : 1;
   }, !reducedMotion);
-  const staticProgress =
-    step.targetValue > 0 ? elapsedSeconds / step.targetValue : 1;
+  const staticProgress = step.targetValue > 0 ? second / step.targetValue : 1;
+
+  // Point clair : un tour complet par seconde, en partant du haut à chaque
+  // changement de chiffre.
+  const dotStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${cycle.value * 360}deg` }],
+  }));
 
   // Halo une fois l'objectif atteint : pulse entre une lueur douce et une
-  // lueur forte (aller 0,7 s, retour 0,7 s). Une ombre ne s'anime pas
-  // directement : on superpose les deux lueurs et on fait varier leur
-  // opacité en sens inverse.
-  const pulse = useSharedValue(0);
-  useEffect(() => {
-    if (reached && !reducedMotion) {
-      pulse.value = withRepeat(
-        withTiming(1, { duration: 700, easing: HALO_EASING }),
-        -1,
-        true,
-      );
-    }
-    return () => cancelAnimation(pulse);
-  }, [reached, reducedMotion, pulse]);
+  // lueur forte. Une ombre ne s'anime pas directement : on superpose les deux
+  // lueurs et on fait varier leur opacité en sens inverse.
+  const pulse = usePulse(reached && !reducedMotion);
   const softHaloStyle = useAnimatedStyle(() => ({ opacity: 1 - pulse.value }));
   const strongHaloStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
 
@@ -293,9 +283,14 @@ function TimingView({
           progress={reducedMotion ? staticProgress : progress}
           glow
         />
+        {!reducedMotion && (
+          <Animated.View style={[styles.timerDotOrbit, dotStyle]}>
+            <View style={styles.timerDot} />
+          </Animated.View>
+        )}
         <View style={styles.timerInner}>
           <GradientText style={styles.timerValue} gradient={gradients.fireLive}>
-            {formatDuration(elapsedSeconds)}
+            {formatDuration(second)}
           </GradientText>
           <ObjectiveLine step={step} size={14} />
         </View>
@@ -328,7 +323,6 @@ export function ExercisePhaseView({
   step,
   exercisePhase,
   countdownStartedAt,
-  elapsedSeconds,
   onStartTimer,
   onFinishReps,
   onFinishTimer,
@@ -337,7 +331,6 @@ export function ExercisePhaseView({
   exercisePhase: "idle" | "countdown" | "timing";
   /** Heure de début du décompte (null tant qu'il n'est pas lancé) */
   countdownStartedAt: number | null;
-  elapsedSeconds: number;
   onStartTimer: () => void;
   onFinishReps: () => void;
   onFinishTimer: () => void;
@@ -362,7 +355,6 @@ export function ExercisePhaseView({
       <TimingView
         step={step}
         startedAt={countdownStartedAt + COUNTDOWN_SECONDS * 1000}
-        elapsedSeconds={elapsedSeconds}
         onFinish={onFinishTimer}
       />
     );
@@ -490,6 +482,24 @@ const styles = StyleSheet.create({
     borderRadius: 150,
     // Lueur douce de l'animation « halo » (objectif atteint)
     boxShadow: "0 0 30px 2px rgba(255,140,40,0.35)",
+  },
+  // Le point tourne avec une vue carrée de la taille du cadran, pivotée sur
+  // son centre ; le point est posé en haut, sur l'anneau (rayon 128).
+  timerDotOrbit: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 300,
+    height: 300,
+  },
+  timerDot: {
+    position: "absolute",
+    top: 150 - 128 - 4,
+    left: 150 - 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#FFE7A8",
   },
   timerHaloStrong: {
     // Lueur forte, au milieu de l'animation

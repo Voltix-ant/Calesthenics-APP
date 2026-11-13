@@ -6,24 +6,27 @@ import { GradientText } from "@/components/ui/gradient-text";
 import { Neu } from "@/components/ui/neu";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { colors, display, screenTop } from "@/constants/theme";
+import { useSecondsSince } from "@/hooks/use-second-cycle";
 import { formatDuration } from "@/utils/format-duration";
 
 // Barre du haut de la séance : durée totale (avec le point « en direct »),
 // boutons son et abandon, puis la progression.
 export function SessionTopBar({
-  elapsedSeconds,
+  startedAt,
   progressPercent,
   soundEnabled,
   onToggleSound,
   onAbort,
 }: {
-  elapsedSeconds: number;
+  /** Heure de lancement de la séance */
+  startedAt: number;
   progressPercent: number;
   soundEnabled: boolean;
   onToggleSound: () => void;
   onAbort: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const elapsedSeconds = useSecondsSince(startedAt);
   const percentLabel = `${progressPercent}%`;
 
   return (

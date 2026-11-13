@@ -3,27 +3,36 @@ import Animated, {
   useAnimatedProps,
   type SharedValue,
 } from "react-native-reanimated";
-import Svg, {
-  Circle,
-  Defs,
-  FeDropShadow,
-  Filter,
-  LinearGradient,
-  Stop,
-} from "react-native-svg";
+import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 
 import { fireStops } from "@/constants/theme";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+// Lueur autour de l'arc. La maquette utilise un flou (drop-shadow 8 px), mais
+// un flou SVG est recalculé à chaque image quand l'arc avance, ce qui fait
+// sauter des images. On l'imite avec des traits orange plus larges et très
+// transparents, empilés sous l'arc : rendu proche, coût négligeable.
+const GLOW_COLOR = "rgb(255,120,40)";
+const GLOW_LAYERS = [
+  { extraWidth: 16, opacity: 0.06 },
+  { extraWidth: 10, opacity: 0.12 },
+  { extraWidth: 4, opacity: 0.22 },
+];
 
 type ArcProps = {
   center: number;
   radius: number;
   strokeWidth: number;
   circumference: number;
+  stroke: string;
   opacity?: number;
-  gradientUrl: string;
-  filterUrl?: string;
+  progress: number | SharedValue<number>;
+};
+
+const clamp01 = (value: number) => {
+  "worklet";
+  return Math.max(0, Math.min(1, value));
 };
 
 // Arc piloté par une valeur animée : seul le décalage du trait
@@ -31,31 +40,47 @@ type ArcProps = {
 function AnimatedArc({
   progress,
   circumference,
-  center,
-  radius,
-  strokeWidth,
-  opacity,
-  gradientUrl,
-  filterUrl,
-}: ArcProps & { progress: SharedValue<number> }) {
-  const animatedProps = useAnimatedProps(() => {
-    const p = Math.max(0, Math.min(1, progress.value));
-    return { strokeDashoffset: (1 - p) * circumference };
-  });
+  ...circle
+}: Omit<ArcProps, "progress"> & { progress: SharedValue<number> }) {
+  const animatedProps = useAnimatedProps(() => ({
+    strokeDashoffset: (1 - clamp01(progress.value)) * circumference,
+  }));
 
   return (
     <AnimatedCircle
       animatedProps={animatedProps}
-      cx={center}
-      cy={center}
-      r={radius}
+      cx={circle.center}
+      cy={circle.center}
+      r={circle.radius}
       fill="none"
-      stroke={gradientUrl}
-      strokeWidth={strokeWidth}
+      stroke={circle.stroke}
+      strokeWidth={circle.strokeWidth}
       strokeLinecap="round"
       strokeDasharray={`${circumference} ${circumference}`}
-      opacity={opacity}
-      filter={filterUrl}
+      opacity={circle.opacity}
+    />
+  );
+}
+
+// Un arc : un trait pointillé dont le premier tiret fait
+// `progress × circonférence`.
+function Arc(props: ArcProps) {
+  const { progress, circumference } = props;
+  if (typeof progress !== "number") {
+    return <AnimatedArc {...props} progress={progress} />;
+  }
+  return (
+    <Circle
+      cx={props.center}
+      cy={props.center}
+      r={props.radius}
+      fill="none"
+      stroke={props.stroke}
+      strokeWidth={props.strokeWidth}
+      strokeLinecap="round"
+      strokeDasharray={`${circumference} ${circumference}`}
+      strokeDashoffset={(1 - clamp01(progress)) * circumference}
+      opacity={props.opacity}
     />
   );
 }
@@ -70,7 +95,7 @@ type RingProps = {
   /** Couleur de la piste sous l'anneau (absente : pas de piste) */
   trackColor?: string;
   opacity?: number;
-  /** Lueur orange autour de l'anneau (drop-shadow des maquettes) */
+  /** Lueur orange autour de l'anneau */
   glow?: boolean;
   /** Préfixe des id SVG, unique à l'écran */
   id: string;
@@ -78,9 +103,8 @@ type RingProps = {
 
 /**
  * Anneau de progression en dégradé feu, posé en absolu sur son parent.
- * Le remplissage se fait avec un trait pointillé dont le premier tiret fait
- * `progress × circonférence`. Comme dans les maquettes, tout le
- * SVG est tourné de −90° pour que l'anneau parte du haut.
+ * Comme dans les maquettes, tout le SVG est tourné de −90° pour que l'anneau
+ * parte du haut.
  */
 export function Ring({
   size,
@@ -94,15 +118,7 @@ export function Ring({
 }: RingProps) {
   const center = size / 2;
   const circumference = 2 * Math.PI * radius;
-  const arc: ArcProps = {
-    center,
-    radius,
-    strokeWidth,
-    circumference,
-    opacity,
-    gradientUrl: `url(#${id}-fire)`,
-    filterUrl: glow ? `url(#${id}-glow)` : undefined,
-  };
+  const common = { center, radius, circumference, progress };
 
   return (
     <Svg
@@ -118,24 +134,6 @@ export function Ring({
           <Stop offset="0.5" stopColor={fireStops[1]} />
           <Stop offset="1" stopColor={fireStops[2]} />
         </LinearGradient>
-        {glow && (
-          // drop-shadow(0 0 8px …) en CSS = flou d'écart-type 4 en SVG
-          <Filter
-            id={`${id}-glow`}
-            x="-20%"
-            y="-20%"
-            width="140%"
-            height="140%"
-          >
-            <FeDropShadow
-              dx={0}
-              dy={0}
-              stdDeviation={4}
-              floodColor="rgb(255,120,40)"
-              floodOpacity={0.55}
-            />
-          </Filter>
-        )}
       </Defs>
       {trackColor && (
         <Circle
@@ -147,22 +145,22 @@ export function Ring({
           strokeWidth={strokeWidth}
         />
       )}
-      {typeof progress === "number" ? (
-        <Circle
-          cx={center}
-          cy={center}
-          r={radius}
-          fill="none"
-          stroke={arc.gradientUrl}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={`${Math.max(0, Math.min(1, progress)) * circumference} ${circumference}`}
-          opacity={opacity}
-          filter={arc.filterUrl}
-        />
-      ) : (
-        <AnimatedArc progress={progress} {...arc} />
-      )}
+      {glow &&
+        GLOW_LAYERS.map((layer) => (
+          <Arc
+            key={layer.extraWidth}
+            {...common}
+            strokeWidth={strokeWidth + layer.extraWidth}
+            stroke={GLOW_COLOR}
+            opacity={layer.opacity}
+          />
+        ))}
+      <Arc
+        {...common}
+        strokeWidth={strokeWidth}
+        stroke={`url(#${id}-fire)`}
+        opacity={opacity}
+      />
     </Svg>
   );
 }
