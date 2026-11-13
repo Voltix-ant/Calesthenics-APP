@@ -1,15 +1,34 @@
-import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import {
+  Stack,
+  useFocusEffect,
+  useLocalSearchParams,
+  useRouter,
+} from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
+import {
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Pause,
+  Play,
+  Trash2,
+} from "lucide-react-native";
 import { useState } from "react";
 import {
   Alert,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { FireButton } from "@/components/ui/fire-button";
+import { GradientText } from "@/components/ui/gradient-text";
+import { Neu } from "@/components/ui/neu";
+import { ScreenHeader } from "@/components/ui/screen-header";
+import { body, colors, display, em } from "@/constants/theme";
 
 type WorkoutRow = {
   id: number;
@@ -75,6 +94,10 @@ type ExerciseEntry = {
   sets: { setNumber: number; value: number }[];
 };
 
+const unitLabel = (type: "reps" | "time" | null) =>
+  type === "reps" ? "reps" : "sec";
+
+// Replié : carte en relief. Déplié : creusé, avec le détail des séries.
 function SessionAccordionItem({
   session,
   exerciseEntries,
@@ -86,31 +109,44 @@ function SessionAccordionItem({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const Chevron = expanded ? ChevronUp : ChevronDown;
+
   return (
-    <View style={styles.accordionItem}>
-      <TouchableOpacity style={styles.accordionHeader} onPress={onToggle}>
+    <Neu
+      variant={expanded ? "in" : "up-sm"}
+      surface={expanded ? undefined : "card"}
+      style={[styles.accordion, expanded && styles.accordionExpanded]}
+    >
+      <Pressable
+        style={styles.accordionHeader}
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+      >
         <Text style={styles.accordionTitle}>
           {formatSessionDate(session.performed_at)}
         </Text>
-        <Text style={styles.accordionChevron}>{expanded ? "▲" : "▼"}</Text>
-      </TouchableOpacity>
+        <Chevron
+          size={20}
+          strokeWidth={2}
+          color={expanded ? colors.fireMid : colors.textTertiary}
+        />
+      </Pressable>
 
       {expanded && (
         <View style={styles.accordionBody}>
           {exerciseEntries.map((entry) => (
-            <View key={entry.exerciseId} style={styles.historyExerciseRow}>
-              <Text style={styles.historyExerciseName}>
-                {entry.exerciseName}
-              </Text>
-              <Text style={styles.historyExerciseValues}>
+            <View key={entry.exerciseId} style={styles.historyRow}>
+              <Text style={styles.historyName}>{entry.exerciseName}</Text>
+              <Text style={styles.historyValues}>
                 {entry.sets.map((s) => s.value).join(" - ")}{" "}
-                {entry.exerciseType === "reps" ? "reps" : "sec"}
+                {unitLabel(entry.exerciseType)}
               </Text>
             </View>
           ))}
         </View>
       )}
-    </View>
+    </Neu>
   );
 }
 
@@ -255,68 +291,90 @@ export default function WorkoutDetailScreen() {
 
   if (!workout) {
     return (
-      <View style={styles.container}>
-        <Text>Chargement...</Text>
+      <View style={styles.screen}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ScreenHeader title="" />
+        <Text style={styles.loading}>Chargement...</Text>
       </View>
     );
   }
 
   return (
-    <>
-      <Stack.Screen options={{ title: workout.name }} />
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
-      >
-        <Text style={styles.title}>{workout.name}</Text>
-        {workout.description && (
-          <Text style={styles.description}>{workout.description}</Text>
-        )}
+    <View style={styles.screen}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScreenHeader title={workout.name} />
 
-        <TouchableOpacity
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: 40 + insets.bottom },
+        ]}
+      >
+        <View style={styles.intro}>
+          <Text style={styles.title}>{workout.name}</Text>
+          {workout.description ? (
+            <Text style={styles.description}>{workout.description}</Text>
+          ) : null}
+        </View>
+
+        <FireButton
+          label="Lancer l'entrainement"
+          icon={
+            <Play
+              size={20}
+              strokeWidth={2}
+              color={colors.onFire}
+              fill={colors.onFire}
+            />
+          }
           style={styles.launchButton}
+          labelStyle={styles.launchLabel}
           onPress={() =>
             router.push({
               pathname: "/session/[id]",
               params: { id: workoutId.toString() },
             })
           }
-        >
-          <Text style={styles.launchButtonText}>Lancer l'entrainement</Text>
-        </TouchableOpacity>
+        />
 
-        <View style={styles.blocksSection}>
-          {blocks.map((block) => (
-            <View
-              key={block.block_id}
-              style={[styles.card, block.type === "rest" && styles.restCard]}
-            >
-              {block.type === "exercise" ? (
-                <>
-                  <Text style={styles.cardTitle}>{block.exercise_name}</Text>
-                  <Text style={styles.cardSubtitle}>
-                    {(setsByBlock[block.block_id] ?? [])
+        <View style={styles.blocks}>
+          {blocks.map((block) =>
+            block.type === "exercise" ? (
+              <Neu
+                key={block.block_id}
+                variant="up-sm"
+                surface="card"
+                style={styles.exerciseCard}
+              >
+                <View style={styles.exerciseTop}>
+                  <Text style={styles.exerciseName}>{block.exercise_name}</Text>
+                  <GradientText style={styles.exerciseTargets}>
+                    {`${(setsByBlock[block.block_id] ?? [])
                       .map((s) => s.target_value)
-                      .join(" - ")}{" "}
-                    {block.exercise_type === "reps" ? "reps" : "sec"}
-                  </Text>
-                  <Text style={styles.cardMeta}>
-                    Repos entre séries : {block.rest_between_sets} sec
-                  </Text>
-                </>
-              ) : (
-                <Text style={styles.cardTitle}>
+                      .join(" - ")} ${unitLabel(block.exercise_type)}`}
+                  </GradientText>
+                </View>
+                <Text style={styles.exerciseMeta}>
+                  Repos entre séries : {block.rest_between_sets} sec
+                </Text>
+              </Neu>
+            ) : (
+              <Neu key={block.block_id} variant="in-sm" style={styles.restCard}>
+                <Pause size={16} strokeWidth={2} color={colors.textSecondary} />
+                <Text style={styles.restText}>
                   Repos : {block.rest_seconds} sec
                 </Text>
-              )}
-            </View>
-          ))}
+              </Neu>
+            ),
+          )}
         </View>
 
-        <View style={styles.historySection}>
-          <Text style={styles.sectionTitle}>Historique</Text>
+        <View style={styles.history}>
+          <Text style={styles.sectionTitle} role="heading">
+            Historique
+          </Text>
           {sessions.length === 0 ? (
-            <Text style={styles.emptyHistoryText}>
+            <Text style={styles.emptyHistory}>
               Aucune séance enregistrée pour l'instant.
             </Text>
           ) : (
@@ -340,9 +398,11 @@ export default function WorkoutDetailScreen() {
           )}
         </View>
 
-        <View style={styles.actionsSection}>
-          <TouchableOpacity
-            style={styles.editButton}
+        <View style={styles.actions}>
+          <Neu
+            variant="up-sm"
+            surface="flat"
+            style={styles.actionButton}
             onPress={() =>
               router.push({
                 pathname: "/workout/edit/[id]",
@@ -350,91 +410,130 @@ export default function WorkoutDetailScreen() {
               })
             }
           >
-            <Text style={styles.editButtonText}>Dupliquer</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-            <Text style={styles.deleteButtonText}>Supprimer</Text>
-          </TouchableOpacity>
+            <Copy size={18} strokeWidth={2} color={colors.fireMid} />
+            <Text style={styles.actionLabel}>Dupliquer</Text>
+          </Neu>
+          <Neu
+            variant="up-sm"
+            surface="flat"
+            style={styles.actionButton}
+            onPress={handleDelete}
+          >
+            <Trash2 size={18} strokeWidth={2} color={colors.destructive} />
+            <Text style={[styles.actionLabel, styles.destructive]}>
+              Supprimer
+            </Text>
+          </Neu>
         </View>
       </ScrollView>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "#fff" },
-  title: { fontSize: 26, fontWeight: "bold", color: "#000" },
-  description: { fontSize: 15, color: "#555", marginTop: 8 },
-  launchButton: {
-    backgroundColor: "#000",
-    padding: 16,
-    borderRadius: 8,
+  screen: { flex: 1, backgroundColor: colors.background },
+  loading: {
+    ...body(400),
+    fontSize: 16,
+    color: colors.textSecondary,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+  },
+  content: {
+    paddingTop: 20,
+    paddingHorizontal: 24,
+    gap: 26,
+  },
+  intro: { gap: 10 },
+  title: {
+    ...display(700),
+    fontSize: 38,
+    lineHeight: 38 * 1.05,
+    letterSpacing: em(-0.015, 38),
+  },
+  description: {
+    ...body(400),
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.textSecondary,
+  },
+  launchButton: { height: 66, borderRadius: 22, gap: 12 },
+  launchLabel: { fontSize: 18 },
+  blocks: { gap: 14 },
+  exerciseCard: {
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    gap: 4,
+  },
+  exerciseTop: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  exerciseName: { ...display(700), fontSize: 17, flexShrink: 1 },
+  exerciseTargets: { ...display(700), fontSize: 15 },
+  exerciseMeta: { ...body(400), fontSize: 14, color: colors.textTertiary },
+  restCard: {
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    minHeight: 52,
+    flexDirection: "row",
     alignItems: "center",
-    marginTop: 16,
-    marginBottom: 24,
+    gap: 10,
   },
-  launchButtonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  blocksSection: { marginBottom: 24 },
-  card: {
-    backgroundColor: "#f2f2f2",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 10,
+  restText: { ...body(600), fontSize: 15, color: colors.textSecondary },
+  history: { gap: 14, paddingTop: 6 },
+  sectionTitle: { ...display(700), fontSize: 22 },
+  emptyHistory: {
+    ...body(400),
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.textSecondary,
   },
-  restCard: { backgroundColor: "#e8e8f5" },
-  cardTitle: { fontSize: 16, fontWeight: "600", color: "#000" },
-  cardSubtitle: { fontSize: 14, color: "#333", marginTop: 4 },
-  cardMeta: { fontSize: 13, color: "#777", marginTop: 2 },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#000",
-    marginBottom: 10,
+  accordion: {
+    borderRadius: 20,
+    paddingTop: 4,
+    paddingHorizontal: 16,
+    paddingBottom: 4,
   },
-  historySection: { marginBottom: 24 },
-  emptyHistoryText: { color: "#888", fontStyle: "italic" },
-  accordionItem: {
-    borderWidth: 1,
-    borderColor: "#eee",
-    borderRadius: 8,
-    marginBottom: 8,
-    overflow: "hidden",
-  },
+  accordionExpanded: { paddingBottom: 14 },
   accordionHeader: {
+    minHeight: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  accordionTitle: { ...body(600), fontSize: 16, flexShrink: 1 },
+  accordionBody: { gap: 10 },
+  historyRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    padding: 14,
-    backgroundColor: "#fafafa",
+    gap: 12,
   },
-  accordionTitle: { fontSize: 15, fontWeight: "600", color: "#000" },
-  accordionChevron: { fontSize: 12, color: "#888" },
-  accordionBody: { padding: 14, paddingTop: 0 },
-  historyExerciseRow: {
+  historyName: {
+    ...body(400),
+    fontSize: 15,
+    color: colors.textSecondary,
+    flexShrink: 1,
+  },
+  historyValues: {
+    ...body(600),
+    fontSize: 15,
+    fontVariant: ["tabular-nums"],
+  },
+  actions: { flexDirection: "row", gap: 16, paddingTop: 8 },
+  actionButton: {
+    flex: 1,
+    height: 56,
+    borderRadius: 18,
     flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 6,
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-  },
-  historyExerciseName: { fontSize: 14, color: "#000", flex: 1 },
-  historyExerciseValues: { fontSize: 14, color: "#555" },
-  actionsSection: { flexDirection: "row", gap: 12, marginBottom: 32 },
-  editButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#000",
-    padding: 14,
-    borderRadius: 8,
     alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
-  editButtonText: { fontWeight: "600", color: "#000" },
-  deleteButton: {
-    flex: 1,
-    backgroundColor: "#c00",
-    padding: 14,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  deleteButtonText: { color: "#fff", fontWeight: "600" },
+  actionLabel: { ...body(600), fontSize: 16 },
+  destructive: { color: colors.destructive },
 });

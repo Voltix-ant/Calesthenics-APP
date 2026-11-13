@@ -1,39 +1,15 @@
 import { Tabs } from "expo-router/js-tabs";
 
-import { TabBarButton } from "@/components/tab-bar-button";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { Colors } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
+import { TabBar } from "@/components/tab-bar";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
-        headerShown: false,
-        tabBarButton: (props) => <TabBarButton {...props} />,
-      }}
+      tabBar={(props) => <TabBar {...props} />}
+      screenOptions={{ headerShown: false }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="timer"
-        options={{
-          title: "Chrono",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="timer" color={color} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="index" options={{ title: "Home" }} />
+      <Tabs.Screen name="timer" options={{ title: "Chrono" }} />
     </Tabs>
   );
 }

@@ -5,6 +5,7 @@ import { formatDurationWithHundredths } from "@/utils/format-duration";
 import { setAudioModeAsync } from "expo-audio";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { useFocusEffect } from "expo-router";
+import { useBottomTabBarHeight } from "expo-router/js-tabs";
 import { useEffect, useState } from "react";
 import {
   AppState,
@@ -74,6 +75,7 @@ function TimerHistory({ entries }: { entries: ChronoEntry[] }) {
 
 export default function TimerScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Historique des chronos de cette ouverture de l'appli. Simple state, pas de
@@ -191,7 +193,7 @@ export default function TimerScreen() {
     <KeyboardAvoidingContainer
       style={[
         styles.container,
-        { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 },
+        { paddingTop: insets.top + 16, paddingBottom: tabBarHeight + 24 },
       ]}
     >
       <View style={styles.header}>

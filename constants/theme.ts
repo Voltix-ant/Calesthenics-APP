@@ -1,53 +1,93 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Thème « Feu & relief » (voir docs/design/README.md).
+ * Les valeurs sont recopiées telles quelles des maquettes : ne pas arrondir.
  */
+import type { TextStyle } from "react-native";
 
-import { Platform } from 'react-native';
+export const colors = {
+  background: "#23201E",
+  text: "#F4EEE8",
+  textSecondary: "#ABA39B",
+  textTertiary: "#968E86",
+  decrease: "#9DB3CC",
+  destructive: "#FF7A5C",
+  onFire: "#1A0F0A",
+  // Teintes ponctuelles des maquettes
+  fireMid: "#FF8A1F", // chevrons, icônes d'accent
+  tabActive: "#FFB23F", // libellé de l'onglet actif, icône son active
+  firstTime: "#FFC24A", // pastille « 1ʳᵉ fois »
+} as const;
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+/** Les trois couleurs du feu, utilisées aussi dans les dégradés SVG. */
+export const fireStops = ["#FFD23F", "#FF8A1F", "#EE4A2B"] as const;
 
-export const Colors = {
-  light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
-  },
-  dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
-  },
-};
+/**
+ * Dégradés en syntaxe CSS, appliqués via la prop de style `backgroundImage`
+ * (native depuis React Native 0.76, même rendu que dans le navigateur).
+ */
+export const gradients = {
+  /** Fond des boutons principaux (--fire) */
+  fire: "linear-gradient(135deg, #FFD23F 0%, #FF8A1F 50%, #EE4A2B 100%)",
+  /** Texte en dégradé (.fire-text) */
+  fireText: "linear-gradient(135deg, #FFD23F 0%, #FF8A1F 55%, #EE4A2B 100%)",
+  /** Cartes en relief */
+  card: "linear-gradient(145deg, #282422, #1F1C1A)",
+} as const;
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  },
-});
+/** Ombres neumorphiques, mêmes chaînes que les variables CSS des maquettes. */
+export const shadows = {
+  up: "7px 7px 16px rgba(0,0,0,0.6), -6px -6px 14px rgba(255,236,220,0.05)",
+  upSm: "4px 4px 9px rgba(0,0,0,0.55), -3px -3px 8px rgba(255,236,220,0.045)",
+  in: "inset 5px 5px 11px rgba(0,0,0,0.6), inset -4px -4px 10px rgba(255,236,220,0.045)",
+  inSm: "inset 3px 3px 6px rgba(0,0,0,0.55), inset -2px -2px 5px rgba(255,236,220,0.04)",
+  glow: "0 12px 28px -8px rgba(255,105,35,0.6)",
+} as const;
+
+/**
+ * Polices. Sur Android, une graisse = une famille : on n'utilise jamais
+ * `fontWeight`. Chakra Petch s'arrête à 700 (les 800 des maquettes → 700).
+ */
+export const fonts = {
+  display500: "ChakraPetch_500Medium",
+  display600: "ChakraPetch_600SemiBold",
+  display700: "ChakraPetch_700Bold",
+  body400: "Barlow_400Regular",
+  body500: "Barlow_500Medium",
+  body600: "Barlow_600SemiBold",
+  body700: "Barlow_700Bold",
+  segment: "DSEG7Modern-Bold",
+} as const;
+
+/**
+ * Base commune à tous les textes. `includeFontPadding: false` retire la marge
+ * qu'Android ajoute au-dessus et en dessous du texte, pour coller au CSS.
+ */
+const textBase: TextStyle = { color: colors.text, includeFontPadding: false };
+
+/** Équivalent de la classe `.d` des maquettes (Chakra Petch, chiffres tabulaires). */
+export function display(weight: 500 | 600 | 700 = 700): TextStyle {
+  return {
+    ...textBase,
+    fontFamily: fonts[`display${weight}`],
+    fontVariant: ["tabular-nums"],
+  };
+}
+
+/** Texte courant (Barlow). */
+export function body(weight: 400 | 500 | 600 | 700 = 400): TextStyle {
+  return { ...textBase, fontFamily: fonts[`body${weight}`] };
+}
+
+/**
+ * Marge du haut d'un écran. Les maquettes (390×844) incluent la zone de la
+ * barre d'état : on garde leur valeur, sauf si la barre d'état est plus haute,
+ * auquel cas on se place 8 dp sous elle.
+ */
+export function screenTop(mockValue: number, insetTop: number) {
+  return Math.max(mockValue, insetTop + 8);
+}
+
+/** Convertit un letter-spacing CSS en `em` vers des dp. */
+export function em(value: number, fontSize: number) {
+  return value * fontSize;
+}
