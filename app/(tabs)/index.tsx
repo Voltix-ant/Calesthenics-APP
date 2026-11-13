@@ -4,13 +4,13 @@ import { useSQLiteContext } from "expo-sqlite";
 import { ChevronRight, Plus } from "lucide-react-native";
 import { useState } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
-import Animated, { useReducedMotion } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FireButton } from "@/components/ui/fire-button";
 import { GradientText } from "@/components/ui/gradient-text";
 import { Neu } from "@/components/ui/neu";
-import { rise, STAGGER_COUNT, STAGGER_MS } from "@/constants/animations";
+import { RiseOnTab } from "@/components/ui/rise-on-tab";
+import { STAGGER_COUNT, STAGGER_MS } from "@/constants/animations";
 import { body, colors, display, em, screenTop } from "@/constants/theme";
 
 type Workout = {
@@ -23,7 +23,6 @@ export default function WorkoutsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const db = useSQLiteContext();
-  const reducedMotion = useReducedMotion();
   const tabBarHeight = useBottomTabBarHeight();
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   // Évite d'afficher « Aucun entrainement » le temps de la première lecture.
@@ -59,13 +58,8 @@ export default function WorkoutsScreen() {
         data={workouts}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item, index }) => (
-          <Animated.View
-            entering={
-              reducedMotion || index >= STAGGER_COUNT
-                ? undefined
-                : rise(index * STAGGER_MS)
-            }
-          >
+          // Cascade rejouée à chaque retour sur l'onglet (6 premiers blocs)
+          <RiseOnTab delay={index * STAGGER_MS} enabled={index < STAGGER_COUNT}>
             <Neu
               variant="up"
               surface="card"
@@ -86,7 +80,7 @@ export default function WorkoutsScreen() {
                 />
               </Neu>
             </Neu>
-          </Animated.View>
+          </RiseOnTab>
         )}
         ListEmptyComponent={
           loaded ? (
@@ -97,17 +91,17 @@ export default function WorkoutsScreen() {
         }
       />
 
-      <Animated.View
+      <RiseOnTab
+        delay={400}
         // La barre d'onglets flotte par-dessus l'écran : on laisse sa place.
         style={[styles.footer, { paddingBottom: 10 + tabBarHeight }]}
-        entering={reducedMotion ? undefined : rise(400)}
       >
         <FireButton
           label="Nouvel entrainement"
           icon={<Plus size={20} strokeWidth={2} color={colors.onFire} />}
           onPress={() => router.push("/workout/new")}
         />
-      </Animated.View>
+      </RiseOnTab>
     </View>
   );
 }

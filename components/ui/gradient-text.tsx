@@ -16,6 +16,7 @@ import {
 import Animated, {
   cancelAnimation,
   Easing,
+  interpolate,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -24,6 +25,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { gradients } from "@/constants/theme";
+import { SHEEN_GRADIENT, useSheen } from "@/hooks/use-sheen";
 
 // Les types fournis par la librairie s'appuient sur un type de React Native
 // qui n'existe plus (NativeMethods) : on redonne à TypeScript la forme réelle
@@ -44,6 +46,11 @@ type GradientTextProps = {
    * Remplace `gradient`.
    */
   flow?: boolean;
+  /**
+   * Reflet blanc qui traverse le texte en biais (même animation que le
+   * bouton « Série terminée »).
+   */
+  sheen?: boolean;
 };
 
 /**
@@ -56,9 +63,11 @@ export function GradientText({
   style,
   gradient = gradients.fireText,
   flow = false,
+  sheen = false,
 }: GradientTextProps) {
   const reducedMotion = useReducedMotion();
   const animate = flow && !reducedMotion;
+  const showSheen = sheen && !reducedMotion;
   const [size, setSize] = useState({ width: 0, height: 0 });
   const measured = size.width > 0;
 
@@ -83,6 +92,18 @@ export function GradientText({
     transform: [{ translateX: shift.value * tileWidth }],
   }));
 
+  // Reflet : 0 = hors du texte à gauche, 1 = hors du texte à droite
+  const sheenProgress = useSheen(showSheen);
+  const textWidth = size.width;
+  const sheenStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX:
+          interpolate(sheenProgress.value, [0, 1], [-1.2, 1.2]) * textWidth,
+      },
+    ],
+  }));
+
   return (
     <MaskedView
       accessible
@@ -93,7 +114,7 @@ export function GradientText({
         style={[style, styles.hidden]}
         importantForAccessibility="no"
         onLayout={
-          flow
+          flow || sheen
             ? (e) =>
                 setSize({
                   width: e.nativeEvent.layout.width,
@@ -123,6 +144,9 @@ export function GradientText({
           ]}
         />
       )}
+      {showSheen && measured && (
+        <Animated.View style={[styles.sheen, sheenStyle]} />
+      )}
     </MaskedView>
   );
 }
@@ -131,4 +155,12 @@ const styles = StyleSheet.create({
   hidden: { opacity: 0 },
   flowStrip: { position: "absolute", top: 0, flexDirection: "row" },
   flowTile: { height: "100%", backgroundImage: gradients.fireLiveTile },
+  sheen: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundImage: SHEEN_GRADIENT,
+  },
 });

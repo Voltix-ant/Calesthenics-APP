@@ -17,6 +17,8 @@ type FireButtonProps = {
   icon?: ReactNode;
   /** Icône placée après le libellé (ex. flèche « Continuer → »). */
   iconAfter?: ReactNode;
+  /** Calque posé sur tout le bouton, sous le contenu (ex. reflet animé). */
+  overlay?: ReactNode;
   disabled?: boolean;
   /** Dimensions propres à chaque écran (hauteur, rayon, écart). */
   style?: StyleProp<ViewStyle>;
@@ -32,6 +34,7 @@ export function FireButton({
   onPress,
   icon,
   iconAfter,
+  overlay,
   disabled,
   style,
   labelStyle,
@@ -44,6 +47,7 @@ export function FireButton({
       disabled={disabled}
       style={[styles.button, style]}
     >
+      {overlay}
       {icon}
       <Text style={[styles.label, labelStyle]}>{label}</Text>
       {iconAfter}

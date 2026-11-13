@@ -9,7 +9,7 @@ import {
 } from "react-native-reanimated";
 
 /** cubic-bezier(.2,.7,.2,1) des maquettes */
-const RISE_EASING = Easing.bezier(0.2, 0.7, 0.2, 1);
+export const RISE_EASING = Easing.bezier(0.2, 0.7, 0.2, 1);
 
 /** Courbe CSS « ease-out » */
 export const EASE_OUT = Easing.bezier(0, 0, 0.58, 1);
@@ -114,6 +114,50 @@ export function appear({ from = 0.9, duration = 350 } = {}) {
       animations: {
         opacity: withTiming(1, config),
         transform: [{ scale: withTiming(1, config) }],
+      },
+    };
+  };
+}
+
+/**
+ * Remplissage d'une barre : s'étire depuis la gauche (scaleX 0 → 1). La vue
+ * doit avoir `transformOrigin: "left"`.
+ */
+export function growX({ duration = 1100, delay = 0 } = {}) {
+  return (_values: EntryAnimationsValues): LayoutAnimation => {
+    "worklet";
+    return {
+      initialValues: { transform: [{ scaleX: 0 }] },
+      animations: {
+        transform: [
+          {
+            scaleX: withDelay(
+              delay,
+              withTiming(1, { duration, easing: RISE_EASING }),
+            ),
+          },
+        ],
+      },
+    };
+  };
+}
+
+/** cubic-bezier(.3,1.6,.5,1) des maquettes : rebond plus marqué */
+const SPRING_EASING = Easing.bezier(0.3, 1.6, 0.5, 1);
+
+/**
+ * Apparition « à ressort » des pastilles du récap : de 0,5× à 1× en 500 ms,
+ * avec un léger dépassement.
+ */
+export function springPop({ delay = 0 } = {}) {
+  return (_values: EntryAnimationsValues): LayoutAnimation => {
+    "worklet";
+    const config = { duration: 500, easing: SPRING_EASING };
+    return {
+      initialValues: { opacity: 0, transform: [{ scale: 0.5 }] },
+      animations: {
+        opacity: withDelay(delay, withTiming(1, config)),
+        transform: [{ scale: withDelay(delay, withTiming(1, config)) }],
       },
     };
   };

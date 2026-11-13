@@ -59,7 +59,17 @@ export function SessionTopBar({
       </View>
 
       <View style={styles.row}>
-        <ProgressBar percent={progressPercent} />
+        {/* Se remplit à l'arrivée sur la séance, puis à nouveau au récap
+            (la clé change : la barre est recréée et rejoue son animation) */}
+        <ProgressBar
+          key={progressPercent >= 100 ? "complete" : "running"}
+          percent={progressPercent}
+          fill={
+            progressPercent >= 100
+              ? { duration: 1200, delay: 100 }
+              : { duration: 1100, delay: 150 }
+          }
+        />
         <View style={styles.percent}>
           {progressPercent >= 100 ? (
             <GradientText style={styles.percentText}>

@@ -1,12 +1,14 @@
 import { Check, Pencil } from "lucide-react-native";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import Animated, { useReducedMotion } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FireButton } from "@/components/ui/fire-button";
 import { Neu } from "@/components/ui/neu";
 import { NeuTextInput } from "@/components/ui/neu-text-input";
 import { ProgressIndicator } from "@/components/ui/progress-indicator";
+import { rise, springPop } from "@/constants/animations";
 import { body, colors, display } from "@/constants/theme";
 import type { SessionStep } from "@/types/session";
 
@@ -17,11 +19,14 @@ function RecapSetRow({
   value,
   isEditing,
   onChangeValue,
+  popDelay,
 }: {
   step: SessionStep;
   value: number;
   isEditing: boolean;
   onChangeValue: (value: number) => void;
+  /** Délai d'apparition « à ressort » de la pastille (absent : sans animation) */
+  popDelay?: number;
 }) {
   const unit = step.exerciseType === "reps" ? "reps" : "sec";
 
@@ -48,7 +53,13 @@ function RecapSetRow({
         <Text style={styles.unit}>{unit}</Text>
       </View>
       {!isEditing && (
-        <ProgressIndicator value={value} previousValue={step.previousValue} />
+        <Animated.View
+          entering={
+            popDelay === undefined ? undefined : springPop({ delay: popDelay })
+          }
+        >
+          <ProgressIndicator value={value} previousValue={step.previousValue} />
+        </Animated.View>
       )}
     </View>
   );
@@ -70,7 +81,12 @@ export function SessionRecap({
   isSaving: boolean;
 }) {
   const insets = useSafeAreaInsets();
+  const reducedMotion = useReducedMotion();
   const [isEditing, setIsEditing] = useState(false);
+  // Les animations d'arrivée ne jouent qu'à l'ouverture du récap, pas quand
+  // les pastilles réapparaissent après une modification.
+  const [hasEdited, setHasEdited] = useState(false);
+  const animate = !reducedMotion && !hasEdited;
 
   // Regroupe les séries par bloc d'exercice : un nouveau bloc commence à chaque "série 1".
   // On garde l'index d'origine de chaque série pour pouvoir modifier `values`.
@@ -82,6 +98,12 @@ export function SessionRecap({
 
   const EditIcon = isEditing ? Check : Pencil;
 
+  // Cascade : titre, puis chaque carte 100 ms plus tard, puis le bouton ;
+  // les pastilles d'une carte surgissent ensuite (0,55 s, 0,75 s, 0,95 s…).
+  const cardDelay = (i: number) => 100 * (i + 1);
+  const buttonDelay = cardDelay(groups.length - 1) + 150;
+  const chipDelay = (i: number) => 550 + 200 * i;
+
   return (
     <ScrollView
       keyboardShouldPersistTaps="handled"
@@ -90,49 +112,61 @@ export function SessionRecap({
         { paddingBottom: 36 + insets.bottom },
       ]}
     >
-      <View style={styles.header}>
+      <Animated.View
+        style={styles.header}
+        entering={animate ? rise(0) : undefined}
+      >
         <Text style={styles.title} role="heading">
           Récap de la séance
         </Text>
         <Neu
           variant="up-sm"
           style={styles.editButton}
-          onPress={() => setIsEditing((v) => !v)}
+          onPress={() => {
+            setHasEdited(true);
+            setIsEditing((v) => !v);
+          }}
         >
           <EditIcon size={16} strokeWidth={2} color={colors.fireMid} />
           <Text style={styles.editLabel}>
             {isEditing ? "Valider" : "Modifier"}
           </Text>
         </Neu>
-      </View>
+      </Animated.View>
 
-      {groups.map((group) => (
-        <Neu
+      {groups.map((group, groupIndex) => (
+        <Animated.View
           key={group[0].index}
-          variant="up"
-          surface="card"
-          style={styles.card}
+          entering={animate ? rise(cardDelay(groupIndex)) : undefined}
         >
-          <Text style={styles.cardTitle}>{group[0].step.exerciseName}</Text>
-          {group.map(({ step, index }) => (
-            <RecapSetRow
-              key={index}
-              step={step}
-              value={values[index] ?? 0}
-              isEditing={isEditing}
-              onChangeValue={(value) => onChangeValue(index, value)}
-            />
-          ))}
-        </Neu>
+          <Neu variant="up" surface="card" style={styles.card}>
+            <Text style={styles.cardTitle}>{group[0].step.exerciseName}</Text>
+            {group.map(({ step, index }) => (
+              <RecapSetRow
+                key={index}
+                step={step}
+                value={values[index] ?? 0}
+                isEditing={isEditing}
+                onChangeValue={(value) => onChangeValue(index, value)}
+                popDelay={animate ? chipDelay(groupIndex) : undefined}
+              />
+            ))}
+          </Neu>
+        </Animated.View>
       ))}
 
-      <FireButton
-        label={isSaving ? "Enregistrement..." : "Enregistrer et terminer"}
-        onPress={onSave}
-        disabled={isSaving}
-        style={[styles.saveButton, isSaving && styles.saving]}
-        labelStyle={styles.saveLabel}
-      />
+      <Animated.View
+        style={styles.saveWrapper}
+        entering={animate ? rise(buttonDelay) : undefined}
+      >
+        <FireButton
+          label={isSaving ? "Enregistrement..." : "Enregistrer et terminer"}
+          onPress={onSave}
+          disabled={isSaving}
+          style={[styles.saveButton, isSaving && styles.saving]}
+          labelStyle={styles.saveLabel}
+        />
+      </Animated.View>
     </ScrollView>
   );
 }
@@ -194,7 +228,8 @@ const styles = StyleSheet.create({
   valueField: { width: 76, height: 40, borderRadius: 14 },
   valueInput: { ...display(700), fontSize: 20, textAlign: "center" },
   unit: { ...body(400), fontSize: 14, color: colors.textSecondary },
-  saveButton: { marginTop: "auto", height: 64, borderRadius: 22 },
+  saveWrapper: { marginTop: "auto" },
+  saveButton: { height: 64, borderRadius: 22 },
   saveLabel: { fontSize: 18 },
   saving: { opacity: 0.6 },
 });

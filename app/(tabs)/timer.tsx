@@ -2,6 +2,7 @@ import { KeyboardAvoidingContainer } from "@/components/keyboard-avoiding-contai
 import { FireButton } from "@/components/ui/fire-button";
 import { GradientText } from "@/components/ui/gradient-text";
 import { Neu } from "@/components/ui/neu";
+import { RiseOnTab } from "@/components/ui/rise-on-tab";
 import { Ring } from "@/components/ui/ring";
 import { appear, EASE_OUT, growOut, pop, rise } from "@/constants/animations";
 import {
@@ -547,7 +548,9 @@ export default function TimerScreen() {
       </View>
 
       <View style={styles.main}>
-        <View style={styles.dialWrapper}>
+        {/* Les blocs apparaissent en cascade, rejouée à chaque retour sur
+            l'onglet */}
+        <RiseOnTab style={styles.dialWrapper}>
           {phase === "countdown" && !reducedMotion && startedAt !== null && (
             <CountdownBeat startedAt={startedAt} />
           )}
@@ -652,9 +655,9 @@ export default function TimerScreen() {
               )}
             </View>
           </View>
-        </View>
+        </RiseOnTab>
 
-        <View style={styles.actionSlot}>
+        <RiseOnTab delay={70} style={styles.actionSlot}>
           {phase === "idle" && (
             <FireButton
               label="Lancer le chrono"
@@ -703,9 +706,11 @@ export default function TimerScreen() {
               </Neu>
             </Animated.View>
           )}
-        </View>
+        </RiseOnTab>
 
-        <TimerHistory entries={history} />
+        <RiseOnTab delay={140} style={styles.historyWrapper}>
+          <TimerHistory entries={history} />
+        </RiseOnTab>
       </View>
     </KeyboardAvoidingContainer>
   );
@@ -851,6 +856,7 @@ const styles = StyleSheet.create({
   restartLabel: { ...body(600), fontSize: 17 },
 
   // Historique
+  historyWrapper: { alignSelf: "stretch" },
   history: {
     alignSelf: "stretch",
     borderRadius: 22,

@@ -15,6 +15,7 @@ import { Chip } from "@/components/ui/chip";
 import { FireButton } from "@/components/ui/fire-button";
 import { GradientText } from "@/components/ui/gradient-text";
 import { Neu } from "@/components/ui/neu";
+import { LiveFireButton } from "@/components/ui/live-fire-button";
 import { RecordBadge } from "@/components/ui/record-badge";
 import { Ring } from "@/components/ui/ring";
 import {
@@ -26,11 +27,17 @@ import {
   screenBottom,
   shadows,
 } from "@/constants/theme";
+import { rise } from "@/constants/animations";
 import { useCountdownDigitStyle } from "@/hooks/use-countdown-digit-style";
 import { usePulse } from "@/hooks/use-pulse";
 import { useSecondCycle } from "@/hooks/use-second-cycle";
 import type { SessionStep } from "@/types/session";
 import { formatDuration } from "@/utils/format-duration";
+
+// Animation d'entrée, sauf si « Réduire les animations » est activé
+function motion<T>(reducedMotion: boolean, animation: T) {
+  return reducedMotion ? undefined : animation;
+}
 
 const unitOf = (step: SessionStep) =>
   step.exerciseType === "reps" ? "reps" : "sec";
@@ -73,6 +80,7 @@ function ReadyView({
   onAction: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const reducedMotion = useReducedMotion();
 
   return (
     <View
@@ -81,15 +89,26 @@ function ReadyView({
         { paddingTop: 44, paddingBottom: screenBottom(48, insets.bottom) },
       ]}
     >
-      <View style={[styles.titleGroup, { gap: 14 }]}>
+      {/* Les trois blocs apparaissent en montant, l'un après l'autre */}
+      <Animated.View
+        style={[styles.titleGroup, { gap: 14 }]}
+        entering={motion(reducedMotion, rise(0))}
+      >
         <SetChip step={step} />
         <Text style={[styles.name, styles.nameLarge]}>{step.exerciseName}</Text>
-      </View>
+      </Animated.View>
 
-      <View style={styles.objectiveGroup}>
+      <Animated.View
+        style={styles.objectiveGroup}
+        entering={motion(reducedMotion, rise(120))}
+      >
         <Text style={styles.objectiveLabel}>Objectif :</Text>
         <View style={styles.bigValueRow}>
-          <GradientText style={styles.bigValue} gradient={gradients.fireLive}>
+          <GradientText
+            style={styles.bigValue}
+            gradient={gradients.fireLive}
+            sheen
+          >
             {step.targetValue.toString()}
           </GradientText>
           <Text style={styles.bigUnit}>{unitOf(step)}</Text>
@@ -100,15 +119,21 @@ function ReadyView({
         {step.previousValue === null && (
           <Text style={styles.firstTime}>(première fois sur cette série)</Text>
         )}
-      </View>
+      </Animated.View>
 
-      <FireButton
-        label={actionLabel}
-        onPress={onAction}
-        icon={<View style={styles.ctaIcon}>{actionIcon}</View>}
-        style={styles.cta}
-        labelStyle={styles.ctaLabel}
-      />
+      <Animated.View
+        style={styles.ctaWrapper}
+        entering={motion(reducedMotion, rise(240))}
+      >
+        <LiveFireButton
+          label={actionLabel}
+          onPress={onAction}
+          icon={<View style={styles.ctaIcon}>{actionIcon}</View>}
+          style={styles.cta}
+          borderRadius={28}
+          labelStyle={styles.ctaLabel}
+        />
+      </Animated.View>
     </View>
   );
 }
@@ -155,7 +180,10 @@ function CountdownView({
         { paddingTop: 36, paddingBottom: screenBottom(72, insets.bottom) },
       ]}
     >
-      <View style={[styles.titleGroup, { gap: 14 }]}>
+      <Animated.View
+        style={[styles.titleGroup, { gap: 14 }]}
+        entering={motion(reducedMotion, rise(0))}
+      >
         <SetChip step={step} />
         <Text style={[styles.name, styles.nameMedium]}>
           {step.exerciseName}
@@ -164,7 +192,7 @@ function CountdownView({
           <ObjectiveLine step={step} size={15} />
           <RecordBadge value={step.record} unit={unitOf(step)} size="sm" />
         </View>
-      </View>
+      </Animated.View>
 
       <View
         style={styles.countdownWrapper}
@@ -280,7 +308,11 @@ function TimingView({
           </Animated.View>
         )}
         <View style={styles.timerInner}>
-          <GradientText style={styles.timerValue} gradient={gradients.fireLive}>
+          <GradientText
+            style={styles.timerValue}
+            gradient={gradients.fireLive}
+            sheen
+          >
             {formatDuration(second)}
           </GradientText>
           <ObjectiveLine step={step} size={14} />
@@ -401,14 +433,8 @@ const styles = StyleSheet.create({
   bigUnit: { ...display(700), fontSize: 22, color: colors.textSecondary },
   recordSpacer: { marginTop: 14 },
   firstTime: { ...body(400), fontSize: 14, color: colors.textTertiary },
-  cta: {
-    alignSelf: "stretch",
-    height: 92,
-    borderRadius: 28,
-    gap: 14,
-    // Lueur au repos de l'animation « breathe » des maquettes
-    boxShadow: `${shadows.upSm}, 0 12px 26px -12px rgba(255,105,35,0.45)`,
-  },
+  ctaWrapper: { alignSelf: "stretch" },
+  cta: { height: 92, gap: 14 },
   ctaIcon: {
     width: 46,
     height: 46,
