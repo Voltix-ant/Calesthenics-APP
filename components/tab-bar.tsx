@@ -2,7 +2,7 @@ import {
   BottomTabBarHeightCallbackContext,
   type BottomTabBarProps,
 } from "expo-router/js-tabs";
-import { House, Timer, type LucideIcon } from "lucide-react-native";
+import { Dumbbell, Timer, type LucideIcon } from "lucide-react-native";
 import { use } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -10,7 +10,7 @@ import { FireGradientDef } from "@/components/ui/fire-gradient-def";
 import { body, colors, shadows } from "@/constants/theme";
 
 const ICONS: Record<string, LucideIcon> = {
-  index: House,
+  index: Dumbbell,
   timer: Timer,
 };
 

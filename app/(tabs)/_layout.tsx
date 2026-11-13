@@ -8,7 +8,7 @@ export default function TabLayout() {
       tabBar={(props) => <TabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tabs.Screen name="index" options={{ title: "Home" }} />
+      <Tabs.Screen name="index" options={{ title: "Workouts" }} />
       <Tabs.Screen name="timer" options={{ title: "Chrono" }} />
     </Tabs>
   );
