@@ -35,11 +35,17 @@ export const gradients = {
   /** Gros chiffres de la séance (.fire-live). L'original fait 200 % de large
    *  pour défiler ; à l'arrêt, seule sa première moitié est visible. */
   fireLive: "linear-gradient(110deg, #FFD23F 0%, #FF8A1F 50%, #EE4A2B 100%)",
+  /** Motif complet de .fire-live, qui défile (voir GradientText `flow`) */
+  fireLiveTile:
+    "linear-gradient(110deg, #FFD23F 0%, #FF8A1F 25%, #EE4A2B 50%, #FF8A1F 75%, #FFD23F 100%)",
   /** Disque des chronos de séance (décompte et chrono) */
   dial: "linear-gradient(145deg, #292523, #1D1A18)",
   /** Lueur au bas de l'écran : exercice en attente et chrono */
   sessionGlow:
     "radial-gradient(120% 55% at 50% 118%, rgba(255,100,30,0.16), rgba(255,100,30,0) 62%)",
+  /** Lueur derrière le cadran de l'onglet Chrono, chrono en cours */
+  chronoGlow:
+    "radial-gradient(90% 45% at 50% 40%, rgba(255,110,30,0.12), rgba(255,110,30,0) 70%)",
   /** Lueur derrière le décompte */
   countdownGlow:
     "radial-gradient(90% 45% at 50% 62%, rgba(255,110,30,0.14), rgba(255,110,30,0) 70%)",

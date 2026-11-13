@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   Easing,
-  interpolate,
   useAnimatedStyle,
   useDerivedValue,
   useFrameCallback,
@@ -27,6 +26,7 @@ import {
   screenBottom,
   shadows,
 } from "@/constants/theme";
+import { useCountdownDigitStyle } from "@/hooks/use-countdown-digit-style";
 import { usePulse } from "@/hooks/use-pulse";
 import { useSecondCycle } from "@/hooks/use-second-cycle";
 import type { SessionStep } from "@/types/session";
@@ -128,20 +128,11 @@ function CountdownView({
 }) {
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
-  const { cycle, second } = useSecondCycle(startedAt, !reducedMotion);
+  const { cycle, elapsed, second } = useSecondCycle(startedAt, !reducedMotion);
   const digit = Math.max(1, COUNTDOWN_SECONDS - second);
 
-  // Chiffre : arrive en 1,45× → 1× (0–0,2 s), rétrécit à 0,94× (jusqu'à
-  // 0,8 s), puis s'efface en rétrécissant à 0,7× (jusqu'à 1 s).
-  const digitStyle = useAnimatedStyle(() => {
-    const t = cycle.value;
-    return {
-      opacity: interpolate(t, [0, 0.2, 0.8, 1], [0, 1, 1, 0]),
-      transform: [
-        { scale: interpolate(t, [0, 0.2, 0.8, 1], [1.45, 1, 0.94, 0.7]) },
-      ],
-    };
-  });
+  // Chiffre : grossi → posé → s'efface, à chaque seconde
+  const digitStyle = useCountdownDigitStyle(cycle, elapsed);
 
   // Anneau : se vide entièrement en une seconde.
   const ringProgress = useDerivedValue(() => 1 - cycle.value);

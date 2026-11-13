@@ -62,10 +62,12 @@ export function useSecondsUntil(endsAt: number) {
  *
  * - `cycle` (valeur partagée Reanimated) : position dans la seconde en cours,
  *   de 0 à 1, mise à jour à chaque image sur le thread de l'interface ;
+ * - `elapsed` (valeur partagée) : temps écoulé en ms, au même rythme ;
  * - `second` (state React) : nombre de secondes entières écoulées.
  */
 export function useSecondCycle(startedAt: number, enabled = true) {
   const cycle = useSharedValue(0);
+  const elapsedMs = useSharedValue(0);
   // Repères pris à la première image : horodatage de l'image et temps déjà
   // écoulé depuis `startedAt` à ce moment-là.
   const firstFrameTime = useSharedValue(-1);
@@ -82,9 +84,10 @@ export function useSecondCycle(startedAt: number, enabled = true) {
     }
     const elapsed =
       elapsedAtFirstFrame.value + (frame.timestamp - firstFrameTime.value);
+    elapsedMs.value = elapsed;
     cycle.value = (elapsed % 1000) / 1000;
   }, enabled);
 
   const second = useSecondsSince(startedAt);
-  return { cycle, second };
+  return { cycle, elapsed: elapsedMs, second };
 }
