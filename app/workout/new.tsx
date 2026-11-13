@@ -4,8 +4,8 @@ import { Stack } from "expo-router";
 export default function NewWorkoutScreen() {
   return (
     <>
-      <Stack.Screen options={{ title: "Nouvel entrainement" }} />
-      <WorkoutForm />
+      <Stack.Screen options={{ headerShown: false }} />
+      <WorkoutForm title="Nouvel entrainement" />
     </>
   );
 }

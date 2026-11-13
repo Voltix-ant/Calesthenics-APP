@@ -1,4 +1,6 @@
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { BlockDraft, WorkoutForm } from "@/components/workout-form";
+import { body, colors } from "@/constants/theme";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useState } from "react";
@@ -108,16 +110,19 @@ export default function DuplicateWorkoutScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text>Chargement...</Text>
+      <View style={styles.screen}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ScreenHeader title="" />
+        <Text style={styles.loading}>Chargement...</Text>
       </View>
     );
   }
 
   return (
     <>
-      <Stack.Screen options={{ title: `Dupliquer "${sourceName}"` }} />
+      <Stack.Screen options={{ headerShown: false }} />
       <WorkoutForm
+        title={`Dupliquer "${sourceName}"`}
         initialName={`${sourceName} (2)`}
         initialDescription={initialDescription}
         initialBlocks={initialBlocks}
@@ -128,5 +133,12 @@ export default function DuplicateWorkoutScreen() {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  screen: { flex: 1, backgroundColor: colors.background },
+  loading: {
+    ...body(400),
+    fontSize: 16,
+    color: colors.textSecondary,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+  },
 });
