@@ -1,23 +1,53 @@
 import { KeyboardAvoidingContainer } from "@/components/keyboard-avoiding-container";
-import { IconSymbol } from "@/components/ui/icon-symbol";
+import { FireButton } from "@/components/ui/fire-button";
+import { GradientText } from "@/components/ui/gradient-text";
+import { Neu } from "@/components/ui/neu";
+import {
+  body,
+  colors,
+  display,
+  em,
+  fireStops,
+  fonts,
+  gradients,
+  screenTop,
+  shadows,
+} from "@/constants/theme";
 import { useCountdownBeeps } from "@/hooks/use-countdown-beeps";
 import { formatDurationWithHundredths } from "@/utils/format-duration";
 import { setAudioModeAsync } from "expo-audio";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { useFocusEffect } from "expo-router";
 import { useBottomTabBarHeight } from "expo-router/js-tabs";
+import {
+  ChevronDown,
+  ChevronUp,
+  Play,
+  RotateCcw,
+  Square,
+  Volume2,
+  VolumeX,
+} from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   AppState,
   Keyboard,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, {
+  Circle,
+  Defs,
+  FeDropShadow,
+  Filter,
+  LinearGradient,
+  Stop,
+} from "react-native-svg";
 
 const DEFAULT_COUNTDOWN_SECONDS = 5;
 const KEEP_AWAKE_TAG = "timer-screen";
@@ -34,20 +64,158 @@ const formatClockTime = (timestamp: number) =>
     minute: "2-digit",
   });
 
+// ---- Affichage 7 segments (police DSEG) ----
+
+const pad2 = (n: number) => n.toString().padStart(2, "0");
+
+// Découpe une durée pour l'affichage 7 segments : partie principale « m:ss. »
+// (ou « h:mm:ss. » au-delà d'une heure) et centièmes à part. La taille baisse
+// quand le texte s'allonge, pour tenir dans le cadran.
+function segmentParts(ms: number) {
+  const h = Math.floor(ms / 3_600_000);
+  const m = Math.floor(ms / 60_000) % 60;
+  const s = Math.floor(ms / 1000) % 60;
+  const cs = Math.floor(ms / 10) % 100;
+  const main = `${h > 0 ? `${h}:${pad2(m)}` : m}:${pad2(s)}.`;
+  const size = h >= 10 ? 30 : h > 0 ? 36 : 46;
+  return {
+    main,
+    // Segments éteints : même texte avec des 8 (tous les segments)
+    ghostMain: main.replace(/\d/g, "8"),
+    cs: pad2(cs),
+    size,
+    csSize: Math.round(size * 0.5),
+  };
+}
+
+// Un texte 7 segments posé sur ses segments éteints (« 88:88. » très pâle).
+// Le « . » de DSEG ne prend pas de place : il se superpose au chiffre d'avant.
+function SegmentText({
+  text,
+  ghost,
+  size,
+  gradient,
+  color,
+}: {
+  text: string;
+  ghost: string;
+  size: number;
+  gradient?: string;
+  color?: string;
+}) {
+  const style = [styles.segment, { fontSize: size, lineHeight: size }];
+  return (
+    <View>
+      <Text style={[style, styles.segmentGhost]} importantForAccessibility="no">
+        {ghost}
+      </Text>
+      <View style={styles.segmentOverlay}>
+        {gradient ? (
+          <GradientText style={style} gradient={gradient}>
+            {text}
+          </GradientText>
+        ) : (
+          <Text style={[style, { color }]}>{text}</Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function SegmentDuration({ ms, gradient }: { ms: number; gradient: string }) {
+  const parts = segmentParts(ms);
+  return (
+    <View
+      style={styles.segmentRow}
+      accessible
+      accessibilityLabel={formatDurationWithHundredths(ms)}
+    >
+      <SegmentText
+        text={parts.main}
+        ghost={parts.ghostMain}
+        size={parts.size}
+        gradient={gradient}
+      />
+      <SegmentText
+        text={parts.cs}
+        ghost="88"
+        size={parts.csSize}
+        color={colors.textSecondary}
+      />
+    </View>
+  );
+}
+
+// Arc lumineux qui tourne autour du cadran pendant le chrono (pour l'instant
+// fixe : les animations viendront plus tard).
+function RunningArc() {
+  const radius = 130;
+  const circumference = 2 * Math.PI * radius;
+  return (
+    <Svg
+      width={280}
+      height={280}
+      viewBox="0 0 280 280"
+      style={StyleSheet.absoluteFill}
+      pointerEvents="none"
+    >
+      <Defs>
+        <LinearGradient id="run-fire" x1="0" y1="0" x2="1" y2="1">
+          <Stop offset="0" stopColor={fireStops[0]} />
+          <Stop offset="1" stopColor={fireStops[2]} />
+        </LinearGradient>
+        {/* drop-shadow(0 0 6px …) en CSS = flou d'écart-type 3 en SVG */}
+        <Filter id="run-glow" x="-20%" y="-20%" width="140%" height="140%">
+          <FeDropShadow
+            dx={0}
+            dy={0}
+            stdDeviation={3}
+            floodColor="rgb(255,130,40)"
+            floodOpacity={0.7}
+          />
+        </Filter>
+      </Defs>
+      <Circle
+        cx={140}
+        cy={140}
+        r={radius}
+        fill="none"
+        stroke="url(#run-fire)"
+        strokeWidth={5}
+        strokeLinecap="round"
+        strokeDasharray={`110 ${circumference - 110}`}
+        filter="url(#run-glow)"
+      />
+    </Svg>
+  );
+}
+
 // ---- Sous-composant : menu déroulant de l'historique ----
 
 function TimerHistory({ entries }: { entries: ChronoEntry[] }) {
   const [expanded, setExpanded] = useState(false);
+  const Chevron = expanded ? ChevronUp : ChevronDown;
 
   return (
-    <View style={styles.history}>
-      <TouchableOpacity
+    <Neu
+      variant="in"
+      style={[styles.history, expanded && styles.historyExpanded]}
+    >
+      <Pressable
         style={styles.historyHeader}
         onPress={() => setExpanded((v) => !v)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
       >
-        <Text style={styles.historyTitle}>Historique ({entries.length})</Text>
-        <Text style={styles.historyChevron}>{expanded ? "▲" : "▼"}</Text>
-      </TouchableOpacity>
+        <Text style={styles.historyTitle}>
+          Historique <Text style={styles.historyCount}>({entries.length})</Text>
+        </Text>
+        <Chevron
+          size={20}
+          strokeWidth={2}
+          color={expanded ? colors.fireMid : colors.textTertiary}
+        />
+      </Pressable>
 
       {expanded &&
         (entries.length === 0 ? (
@@ -69,7 +237,7 @@ function TimerHistory({ entries }: { entries: ChronoEntry[] }) {
             ))}
           </ScrollView>
         ))}
-    </View>
+    </Neu>
   );
 }
 
@@ -189,154 +357,296 @@ export default function TimerScreen() {
     setFinalMs(null);
   };
 
+  const running = phase === "timing";
+
   return (
     <KeyboardAvoidingContainer
-      style={[
-        styles.container,
-        { paddingTop: insets.top + 16, paddingBottom: tabBarHeight + 24 },
-      ]}
+      style={[styles.container, { paddingBottom: tabBarHeight + 8 }]}
     >
-      <View style={styles.header}>
-        <Text style={styles.title}>Chrono</Text>
-        <TouchableOpacity
+      <View style={[styles.header, { paddingTop: screenTop(48, insets.top) }]}>
+        <Text style={styles.title} role="heading">
+          Chrono
+        </Text>
+        <Neu
+          variant="up-sm"
+          style={styles.soundButton}
+          pressedStyle={styles.pressed}
           onPress={() => setSoundEnabled((v) => !v)}
-          hitSlop={12}
+          accessibilityLabel={
+            soundEnabled ? "Couper les bips" : "Activer les bips"
+          }
         >
-          <IconSymbol
-            size={24}
-            name={soundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill"}
-            color="#000"
-          />
-        </TouchableOpacity>
+          {soundEnabled ? (
+            <Volume2 size={22} strokeWidth={2} color={colors.tabActive} />
+          ) : (
+            <VolumeX size={22} strokeWidth={2} color={colors.textTertiary} />
+          )}
+        </Neu>
       </View>
 
-      <View style={styles.centerContent}>
-        {phase === "idle" && (
-          <>
-            <View style={styles.countdownRow}>
-              <Text style={styles.label}>Décompte</Text>
-              <TextInput
-                style={styles.input}
-                keyboardType="number-pad"
-                value={countdownInput}
-                onChangeText={setCountdownInput}
-                selectTextOnFocus
-              />
-              <Text style={styles.unit}>sec</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.primaryButton}
+      <View style={styles.main}>
+        <View style={[styles.dial, running && styles.dialRunning]}>
+          {running && <RunningArc />}
+          <View style={[styles.dialInner, running && styles.dialInnerRunning]}>
+            {phase === "idle" && (
+              <>
+                <Text style={styles.dialLabel}>Décompte</Text>
+                {/* Le chiffre en dégradé est dessiné sous un champ au texte
+                    transparent : on voit le dégradé, on tape dans le champ. */}
+                <View style={styles.countdownField}>
+                  <GradientText style={styles.countdownInputText}>
+                    {countdownInput}
+                  </GradientText>
+                  <TextInput
+                    style={[styles.countdownInputText, styles.countdownInput]}
+                    keyboardType="number-pad"
+                    value={countdownInput}
+                    onChangeText={(text) =>
+                      setCountdownInput(text.replace(/\D/g, "").slice(0, 3))
+                    }
+                    selectTextOnFocus
+                    cursorColor={colors.fireMid}
+                    selectionColor="rgba(255,138,31,0.35)"
+                    accessibilityLabel="Décompte en secondes"
+                  />
+                </View>
+                <Text style={styles.dialUnit}>sec</Text>
+              </>
+            )}
+
+            {phase === "countdown" && (
+              <GradientText style={styles.countdownDigit}>
+                {countdownValue.toString()}
+              </GradientText>
+            )}
+
+            {phase === "timing" && (
+              <>
+                <View style={styles.liveLabel}>
+                  <View style={styles.liveDot} />
+                  <Text style={styles.dialLabel}>En cours</Text>
+                </View>
+                <SegmentDuration ms={elapsedMs} gradient={gradients.fireLive} />
+              </>
+            )}
+
+            {phase === "done" && finalMs !== null && (
+              <>
+                <Text style={styles.dialLabel}>Temps</Text>
+                <SegmentDuration ms={finalMs} gradient={gradients.fireText} />
+              </>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.actionSlot}>
+          {phase === "idle" && (
+            <FireButton
+              label="Lancer le chrono"
               onPress={handleStart}
-            >
-              <Text style={styles.primaryButtonText}>Lancer le chrono</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {phase === "countdown" && (
-          <Text style={styles.countdown}>{countdownValue}</Text>
-        )}
-
-        {phase === "timing" && (
-          <>
-            <Text style={styles.timer}>
-              {formatDurationWithHundredths(elapsedMs)}
-            </Text>
-            <TouchableOpacity style={styles.primaryButton} onPress={handleStop}>
-              <Text style={styles.primaryButtonText}>Terminé</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {phase === "done" && finalMs !== null && (
-          <>
-            <Text style={styles.label}>Temps</Text>
-            <Text style={styles.timer}>
-              {formatDurationWithHundredths(finalMs)}
-            </Text>
-            <TouchableOpacity
-              style={styles.primaryButton}
+              icon={
+                <Play
+                  size={18}
+                  strokeWidth={2}
+                  color={colors.onFire}
+                  fill={colors.onFire}
+                />
+              }
+              style={styles.actionButton}
+              labelStyle={styles.actionLabel}
+            />
+          )}
+          {phase === "timing" && (
+            <FireButton
+              label="Terminé"
+              onPress={handleStop}
+              icon={
+                <Square
+                  size={18}
+                  strokeWidth={2}
+                  color={colors.onFire}
+                  fill={colors.onFire}
+                />
+              }
+              style={styles.actionButton}
+              labelStyle={styles.actionLabel}
+            />
+          )}
+          {phase === "done" && (
+            <Neu
+              variant="up-sm"
+              surface="flat"
+              style={[styles.actionButton, styles.restartButton]}
+              pressedStyle={styles.pressed}
               onPress={handleReset}
             >
-              <Text style={styles.primaryButtonText}>Recommencer</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
+              <RotateCcw size={18} strokeWidth={2} color={colors.fireMid} />
+              <Text style={styles.restartLabel}>Recommencer</Text>
+            </Neu>
+          )}
+        </View>
 
-      <TimerHistory entries={history} />
+        <TimerHistory entries={history} />
+      </View>
     </KeyboardAvoidingContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 16, backgroundColor: "#fff" },
+  container: { backgroundColor: colors.background },
   header: {
+    paddingLeft: 24,
+    paddingRight: 20,
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
-  },
-  title: { fontSize: 24, fontWeight: "bold", color: "#000" },
-  centerContent: { flex: 1, justifyContent: "center", alignItems: "center" },
-  countdownRow: {
-    flexDirection: "row",
-    alignItems: "center",
     gap: 12,
-    marginBottom: 32,
   },
-  label: { fontSize: 16, color: "#555" },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 10,
-    width: 70,
+  title: { ...display(700), fontSize: 30, lineHeight: 33 },
+  soundButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pressed: { transform: [{ scale: 0.97 }] },
+  main: {
+    flex: 1,
+    minHeight: 0,
+    alignItems: "center",
+    paddingTop: 22,
+    paddingHorizontal: 24,
+    gap: 24,
+  },
+
+  // Cadran
+  dial: {
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundImage: "linear-gradient(145deg, #282422, #1E1B19)",
+    boxShadow: shadows.up,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dialRunning: {
+    // Valeur de départ de l'animation « breathe » (chrono en cours)
+    boxShadow: `${shadows.up}, 0 0 40px -10px rgba(255,110,30,0.25)`,
+  },
+  dialInner: {
+    width: 232,
+    height: 232,
+    borderRadius: 116,
+    backgroundColor: colors.background,
+    boxShadow: shadows.in,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  dialInnerRunning: { gap: 14 },
+  dialLabel: {
+    ...body(600),
+    fontSize: 12,
+    letterSpacing: em(0.14, 12),
+    textTransform: "uppercase",
+    color: colors.textSecondary,
+  },
+  dialUnit: { ...body(500), fontSize: 15, color: colors.textSecondary },
+  countdownField: { width: 140, alignItems: "center" },
+  countdownInputText: {
+    ...display(700),
+    fontSize: 80,
+    lineHeight: 84,
     textAlign: "center",
-    fontSize: 20,
-    color: "#000",
   },
-  unit: { fontSize: 15, color: "#666" },
-  countdown: { fontSize: 64, fontWeight: "bold", color: "#000" },
-  timer: {
-    fontSize: 48,
-    fontWeight: "bold",
-    color: "#000",
-    marginBottom: 24,
-    fontVariant: ["tabular-nums"], // chiffres de même largeur : le texte ne tremble pas
+  countdownInput: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    // Texte invisible mais pas "transparent" : Android traite cette valeur
+    // comme « pas de couleur » et dessine alors le texte en noir.
+    color: "#FFFFFF01",
+    padding: 0,
   },
-  primaryButton: {
-    backgroundColor: "#000",
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 8,
+  countdownDigit: { ...display(700), fontSize: 120, lineHeight: 120 },
+  liveLabel: { flexDirection: "row", alignItems: "center", gap: 6 },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.fireMid,
+    boxShadow: `0 0 8px ${colors.fireMid}`,
   },
-  primaryButtonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+
+  // Affichage 7 segments
+  segmentRow: { flexDirection: "row", alignItems: "flex-end", gap: 5 },
+  segment: {
+    fontFamily: fonts.segment,
+    includeFontPadding: false,
+    color: colors.text,
+  },
+  segmentGhost: { color: "rgba(255,236,220,0.055)" },
+  segmentOverlay: { position: "absolute", top: 0, left: 0 },
+
+  // Bouton d'action
+  actionSlot: { alignSelf: "stretch", height: 62 },
+  actionButton: { height: 62, borderRadius: 20, gap: 10 },
+  actionLabel: { fontSize: 17 },
+  restartButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  restartLabel: { ...body(600), fontSize: 17 },
+
+  // Historique
   history: {
-    borderWidth: 1,
-    borderColor: "#eee",
-    borderRadius: 8,
-    overflow: "hidden",
+    alignSelf: "stretch",
+    borderRadius: 22,
+    paddingTop: 6,
+    paddingHorizontal: 16,
+    paddingBottom: 6,
   },
+  historyExpanded: { paddingBottom: 10 },
   historyHeader: {
+    minHeight: 50,
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
-    padding: 14,
-    backgroundColor: "#fafafa",
+    gap: 12,
   },
-  historyTitle: { fontSize: 15, fontWeight: "600", color: "#000" },
-  historyChevron: { fontSize: 12, color: "#888" },
-  historyEmpty: { padding: 14, color: "#888", fontStyle: "italic" },
-  historyList: { maxHeight: 220 },
+  historyTitle: { ...body(600), fontSize: 16 },
+  historyCount: { color: colors.textSecondary },
+  historyEmpty: {
+    ...body(400),
+    paddingTop: 10,
+    paddingBottom: 6,
+    fontSize: 15,
+    color: colors.textTertiary,
+  },
+  historyList: { maxHeight: 132 },
   historyRow: {
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    gap: 8,
     borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
+    borderTopColor: "rgba(255,236,220,0.06)",
   },
-  historyNumber: { width: 44, fontSize: 14, color: "#888" },
-  historyValue: { flex: 1, fontSize: 16, fontWeight: "600", color: "#000" },
-  historyTime: { fontSize: 14, color: "#888" },
+  historyNumber: {
+    ...body(600),
+    width: 44,
+    fontSize: 14,
+    color: colors.textTertiary,
+  },
+  historyValue: { ...display(700), flex: 1, fontSize: 18 },
+  historyTime: {
+    ...body(400),
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontVariant: ["tabular-nums"],
+  },
 });
