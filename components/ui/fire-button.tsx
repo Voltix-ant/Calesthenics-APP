@@ -15,6 +15,8 @@ type FireButtonProps = {
   onPress?: () => void;
   /** Icône placée avant le libellé (couleur à fournir : `colors.onFire`). */
   icon?: ReactNode;
+  /** Icône placée après le libellé (ex. flèche « Continuer → »). */
+  iconAfter?: ReactNode;
   disabled?: boolean;
   /** Dimensions propres à chaque écran (hauteur, rayon, écart). */
   style?: StyleProp<ViewStyle>;
@@ -29,6 +31,7 @@ export function FireButton({
   label,
   onPress,
   icon,
+  iconAfter,
   disabled,
   style,
   labelStyle,
@@ -43,6 +46,7 @@ export function FireButton({
     >
       {icon}
       <Text style={[styles.label, labelStyle]}>{label}</Text>
+      {iconAfter}
     </Pressable>
   );
 }

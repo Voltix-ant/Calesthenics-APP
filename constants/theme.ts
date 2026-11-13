@@ -32,6 +32,17 @@ export const gradients = {
   fireText: "linear-gradient(135deg, #FFD23F 0%, #FF8A1F 55%, #EE4A2B 100%)",
   /** Cartes en relief */
   card: "linear-gradient(145deg, #282422, #1F1C1A)",
+  /** Gros chiffres de la séance (.fire-live). L'original fait 200 % de large
+   *  pour défiler ; à l'arrêt, seule sa première moitié est visible. */
+  fireLive: "linear-gradient(110deg, #FFD23F 0%, #FF8A1F 50%, #EE4A2B 100%)",
+  /** Disque des chronos de séance (décompte et chrono) */
+  dial: "linear-gradient(145deg, #292523, #1D1A18)",
+  /** Lueur au bas de l'écran : exercice en attente et chrono */
+  sessionGlow:
+    "radial-gradient(120% 55% at 50% 118%, rgba(255,100,30,0.16), rgba(255,100,30,0) 62%)",
+  /** Lueur derrière le décompte */
+  countdownGlow:
+    "radial-gradient(90% 45% at 50% 62%, rgba(255,110,30,0.14), rgba(255,110,30,0) 70%)",
 } as const;
 
 /** Ombres neumorphiques, mêmes chaînes que les variables CSS des maquettes. */
@@ -86,6 +97,20 @@ export function body(weight: 400 | 500 | 600 | 700 = 400): TextStyle {
 export function screenTop(mockValue: number, insetTop: number) {
   return Math.max(mockValue, insetTop + 8);
 }
+
+/**
+ * Marge du bas d'un écran (même logique que `screenTop`, avec la barre de
+ * navigation d'Android).
+ */
+export function screenBottom(mockValue: number, insetBottom: number) {
+  return Math.max(mockValue, insetBottom + 8);
+}
+
+/** Style d'appui des boutons en relief (classe `.press` des maquettes). */
+export const pressed = {
+  boxShadow: shadows.inSm,
+  transform: [{ scale: 0.97 }],
+} as const;
 
 /** Convertit un letter-spacing CSS en `em` vers des dp. */
 export function em(value: number, fontSize: number) {

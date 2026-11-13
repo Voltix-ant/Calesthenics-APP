@@ -28,6 +28,8 @@ type NeuProps = {
    */
   surface?: "card" | "flat";
   style?: StyleProp<ViewStyle>;
+  /** Style ajouté pendant l'appui (boutons seulement). */
+  pressedStyle?: StyleProp<ViewStyle>;
   children?: ReactNode;
 } & Pick<
   PressableProps,
@@ -39,6 +41,8 @@ type NeuProps = {
   | "accessibilityLabel"
   | "accessibilityRole"
   | "accessibilityState"
+  | "accessibilityValue"
+  | "accessible"
   | "hitSlop"
 >;
 
@@ -52,8 +56,14 @@ export function Neu({
   variant,
   surface,
   style,
+  pressedStyle,
   children,
-  ...pressProps
+  onPress,
+  onPressIn,
+  onPressOut,
+  onLongPress,
+  disabled,
+  ...a11yProps
 }: NeuProps) {
   const surfaceStyle: ViewStyle = {
     boxShadow: shadowByVariant[variant],
@@ -61,17 +71,26 @@ export function Neu({
     ...(surface === "flat" && { backgroundColor: colors.background }),
   };
 
-  if (pressProps.onPress || pressProps.onLongPress) {
+  if (onPress || onLongPress || onPressIn) {
     return (
       <Pressable
         accessibilityRole="button"
-        {...pressProps}
-        style={[surfaceStyle, style]}
+        {...a11yProps}
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        onLongPress={onLongPress}
+        disabled={disabled}
+        style={({ pressed }) => [surfaceStyle, style, pressed && pressedStyle]}
       >
         {children}
       </Pressable>
     );
   }
 
-  return <View style={[surfaceStyle, style]}>{children}</View>;
+  return (
+    <View {...a11yProps} style={[surfaceStyle, style]}>
+      {children}
+    </View>
+  );
 }

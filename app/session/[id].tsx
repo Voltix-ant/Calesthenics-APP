@@ -1,25 +1,17 @@
 import { KeyboardAvoidingContainer } from "@/components/keyboard-avoiding-container";
-import { SessionRecap } from "@/components/session-recap";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import type { SessionStep } from "@/types/session";
-import { formatDuration } from "@/utils/format-duration";
+import { ExercisePhaseView } from "@/components/session/exercise-phase";
+import { ReviewPhaseView } from "@/components/session/review-phase";
+import { SessionRecap } from "@/components/session/session-recap";
+import { SessionTopBar } from "@/components/session/session-top-bar";
+import { body, colors, gradients } from "@/constants/theme";
 import { useCountdownBeeps } from "@/hooks/use-countdown-beeps";
+import type { SessionStep } from "@/types/session";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import { useKeepAwake } from "expo-keep-awake";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useRef, useState } from "react";
-import {
-  Alert,
-  AppState,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Alert, AppState, StyleSheet, Text, View } from "react-native";
 
 // ---- Types bruts issus de la BDD ----
 
@@ -48,266 +40,6 @@ type PerfRow = {
 };
 
 const COUNTDOWN_MS = 5000; // décompte avant le chrono d'un exercice "temps"
-
-// ---- Sous-composant : écran "exercice en cours" ----
-
-function ExercisePhaseView({
-  step,
-  exercisePhase,
-  countdownValue,
-  elapsedSeconds,
-  onStartTimer,
-  onFinishReps,
-  onFinishTimer,
-}: {
-  step: SessionStep;
-  exercisePhase: "idle" | "countdown" | "timing";
-  countdownValue: number;
-  elapsedSeconds: number;
-  onStartTimer: () => void;
-  onFinishReps: () => void;
-  onFinishTimer: () => void;
-}) {
-  return (
-    <View style={styles.centerContent}>
-      <Text style={styles.stepIndicator}>
-        Série {step.setNumber} / {step.totalSets}
-      </Text>
-      <Text style={styles.exerciseName}>{step.exerciseName}</Text>
-
-      <Text style={styles.objective}>
-        Objectif : {step.targetValue}{" "}
-        {step.exerciseType === "reps" ? "reps" : "sec"}
-      </Text>
-      {step.previousValue === null && (
-        <Text style={styles.hint}>(première fois sur cette série)</Text>
-      )}
-
-      <Text style={styles.record}>
-        Record sur cette série :{" "}
-        {step.record !== null
-          ? `${step.record} ${step.exerciseType === "reps" ? "reps" : "sec"}`
-          : "—"}
-      </Text>
-
-      {step.exerciseType === "reps" ? (
-        <TouchableOpacity style={styles.primaryButton} onPress={onFinishReps}>
-          <Text style={styles.primaryButtonText}>Série terminée</Text>
-        </TouchableOpacity>
-      ) : (
-        <>
-          {exercisePhase === "idle" && (
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={onStartTimer}
-            >
-              <Text style={styles.primaryButtonText}>Lancer le chrono</Text>
-            </TouchableOpacity>
-          )}
-          {exercisePhase === "countdown" && (
-            <Text style={styles.countdown}>{countdownValue}</Text>
-          )}
-          {exercisePhase === "timing" && (
-            <>
-              <Text style={styles.timer}>{formatDuration(elapsedSeconds)}</Text>
-              <TouchableOpacity
-                style={styles.primaryButton}
-                onPress={onFinishTimer}
-              >
-                <Text style={styles.primaryButtonText}>Terminé</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </>
-      )}
-    </View>
-  );
-}
-
-// ---- Sous-composant : bouton +/− qui s'auto-répète quand on le maintient ----
-
-const HOLD_DELAY_MS = 400; // délai avant le début de la répétition
-const HOLD_INTERVAL_MS = 100; // vitesse de la répétition (plus petit = plus rapide)
-
-function HoldableStepperButton({
-  label,
-  delta,
-  onAdjust,
-}: {
-  label: string;
-  delta: number;
-  onAdjust: (delta: number) => void;
-}) {
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const stop = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  };
-
-  const start = () => {
-    stop(); // sécurité : on repart toujours de zéro
-    onAdjust(delta); // 1er appui : on change tout de suite de 1
-    timeoutRef.current = setTimeout(() => {
-      // si le doigt reste appuyé, on répète
-      intervalRef.current = setInterval(
-        () => onAdjust(delta),
-        HOLD_INTERVAL_MS,
-      );
-    }, HOLD_DELAY_MS);
-  };
-
-  // Nettoyage si l'écran disparaît pendant qu'on appuie
-  useEffect(() => stop, []);
-
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.stepperButton,
-        pressed && { opacity: 0.5 },
-      ]}
-      onPressIn={start}
-      onPressOut={stop}
-    >
-      <Text style={styles.stepperButtonText}>{label}</Text>
-    </Pressable>
-  );
-}
-
-// ---- Sous-composant : écran "revue du résultat + repos" (ou fin de séance) ----
-
-function ReviewPhaseView({
-  step,
-  reviewValue,
-  onChangeReviewValue,
-  onAdjustReviewValue,
-  restRemaining,
-  isLastStep,
-  nextStep,
-  onContinue,
-  onGoToRecap,
-}: {
-  step: SessionStep;
-  reviewValue: number;
-  onChangeReviewValue: (value: number) => void;
-  onAdjustReviewValue: (delta: number) => void;
-  restRemaining: number;
-  isLastStep: boolean;
-  nextStep: SessionStep | null;
-  onContinue: () => void;
-  onGoToRecap: () => void;
-}) {
-  const unit = step.exerciseType === "reps" ? "reps" : "sec";
-
-  return (
-    <View style={styles.centerContent}>
-      <Text style={styles.stepIndicator}>
-        Résultat — {step.exerciseName}, série {step.setNumber}
-      </Text>
-
-      <View style={styles.stepperRow}>
-        <HoldableStepperButton
-          label="-"
-          delta={-1}
-          onAdjust={onAdjustReviewValue}
-        />
-        <TextInput
-          style={styles.stepperInput}
-          keyboardType="number-pad"
-          value={reviewValue.toString()}
-          onChangeText={(text) => onChangeReviewValue(parseInt(text) || 0)}
-        />
-        <HoldableStepperButton
-          label="+"
-          delta={1}
-          onAdjust={onAdjustReviewValue}
-        />
-        <Text style={styles.stepperUnit}>{unit}</Text>
-      </View>
-
-      {isLastStep ? (
-        <>
-          <Text style={styles.doneText}>Séance terminée !</Text>
-          <TouchableOpacity style={styles.primaryButton} onPress={onGoToRecap}>
-            <Text style={styles.primaryButtonText}>Passer au récap</Text>
-          </TouchableOpacity>
-        </>
-      ) : (
-        <>
-          <Text style={styles.restLabel}>Repos</Text>
-          <Text style={styles.timer}>{formatDuration(restRemaining)}</Text>
-
-          {nextStep && (
-            <Text style={styles.nextUp}>
-              À suivre : {nextStep.exerciseName} — série {nextStep.setNumber}/
-              {nextStep.totalSets} ({nextStep.targetValue}{" "}
-              {nextStep.exerciseType === "reps" ? "reps" : "sec"})
-            </Text>
-          )}
-
-          <TouchableOpacity style={styles.primaryButton} onPress={onContinue}>
-            <Text style={styles.primaryButtonText}>
-              {restRemaining > 0 ? "Passer" : "Continuer"}
-            </Text>
-          </TouchableOpacity>
-        </>
-      )}
-    </View>
-  );
-}
-
-// ---- Sous-composant : barre du haut (chrono global, son, progression, croix) ----
-
-function SessionTopBar({
-  elapsedSeconds,
-  progressPercent,
-  soundEnabled,
-  onToggleSound,
-  onAbort,
-  topInset,
-}: {
-  elapsedSeconds: number;
-  progressPercent: number;
-  soundEnabled: boolean;
-  onToggleSound: () => void;
-  onAbort: () => void;
-  topInset: number;
-}) {
-  return (
-    <View style={[styles.topBar, { paddingTop: topInset + 8 }]}>
-      <View style={styles.topBarRow}>
-        <Text style={styles.topBarTimer}>{formatDuration(elapsedSeconds)}</Text>
-        <View style={styles.topBarActions}>
-          <TouchableOpacity onPress={onToggleSound} hitSlop={12}>
-            <IconSymbol
-              size={22}
-              name={soundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill"}
-              color="#000"
-            />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onAbort} hitSlop={12}>
-            <Text style={styles.closeButton}>✕</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      <View style={styles.progressRow}>
-        <View style={styles.progressTrack}>
-          <View
-            style={[styles.progressFill, { width: `${progressPercent}%` }]}
-          />
-        </View>
-        <Text style={styles.progressLabel}>{progressPercent}%</Text>
-      </View>
-    </View>
-  );
-}
 
 // ---- Écran principal : charge l'entrainement, puis lance la séance ----
 // Découpé en deux composants pour que <SessionRunner> ne soit affiché qu'une
@@ -416,18 +148,13 @@ export default function SessionScreen() {
     load();
   }, [db, workoutId]);
 
-  if (loading) {
+  if (loading || steps.length === 0) {
     return (
       <View style={styles.centerContent}>
-        <Text>Chargement...</Text>
-      </View>
-    );
-  }
-
-  if (steps.length === 0) {
-    return (
-      <View style={styles.centerContent}>
-        <Text>Aucun exercice dans cet entrainement.</Text>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Text style={styles.message}>
+          {loading ? "Chargement..." : "Aucun exercice dans cet entrainement."}
+        </Text>
       </View>
     );
   }
@@ -446,7 +173,6 @@ function SessionRunner({
 }) {
   const router = useRouter();
   const db = useSQLiteContext();
-  const insets = useSafeAreaInsets();
 
   // ---- State de la séance ----
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -720,22 +446,28 @@ function SessionRunner({
     screenPhase === "exercise" ? currentIndex : currentIndex + 1;
   const progressPercent = Math.round((completedSteps / steps.length) * 100);
 
+  // Lueur orangée en bas de l'écran pendant l'exercice, recentrée derrière
+  // le décompte ; aucun fond particulier pendant le repos et le récap.
+  const backgroundGlow =
+    screenPhase !== "exercise"
+      ? undefined
+      : exercisePhase === "countdown" && step.exerciseType === "time"
+        ? gradients.countdownGlow
+        : gradients.sessionGlow;
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundImage: backgroundGlow }]}>
         <SessionTopBar
           elapsedSeconds={sessionElapsedSeconds}
           progressPercent={progressPercent}
           soundEnabled={soundEnabled}
           onToggleSound={() => setSoundEnabled((v) => !v)}
           onAbort={handleAbort}
-          topInset={insets.top}
         />
 
-        <KeyboardAvoidingContainer
-          style={{ paddingBottom: insets.bottom + 24 }}
-        >
+        <KeyboardAvoidingContainer>
           {screenPhase === "exercise" && (
             <ExercisePhaseView
               step={step}
@@ -776,103 +508,18 @@ function SessionRunner({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  topBar: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    backgroundColor: "#fff",
-  },
-  topBarRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  topBarTimer: { fontSize: 16, fontWeight: "600", color: "#000" },
-  topBarActions: { flexDirection: "row", alignItems: "center", gap: 16 },
-  closeButton: { fontSize: 22, color: "#000" },
-  progressRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  progressTrack: {
-    flex: 1,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#eee",
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#000",
-    borderRadius: 3,
-  },
-  progressLabel: {
-    fontSize: 13,
-    color: "#666",
-    width: 36,
-    textAlign: "right",
-  },
+  container: { flex: 1, backgroundColor: colors.background },
   centerContent: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
+    backgroundColor: colors.background,
   },
-  stepIndicator: { fontSize: 14, color: "#888", marginBottom: 8 },
-  exerciseName: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#000",
-    marginBottom: 16,
+  message: {
+    ...body(400),
+    fontSize: 16,
+    color: colors.textSecondary,
     textAlign: "center",
   },
-  objective: { fontSize: 20, color: "#000", marginBottom: 4 },
-  hint: { fontSize: 13, color: "#888", marginBottom: 12 },
-  record: { fontSize: 15, color: "#555", marginBottom: 32 },
-  countdown: { fontSize: 64, fontWeight: "bold", color: "#000" },
-  timer: { fontSize: 48, fontWeight: "bold", color: "#000", marginBottom: 24 },
-  primaryButton: {
-    backgroundColor: "#000",
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 8,
-  },
-  primaryButtonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  stepperRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 24,
-  },
-  stepperButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "#000",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  stepperButtonText: { fontSize: 22, color: "#000" },
-  stepperInput: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 10,
-    width: 80,
-    textAlign: "center",
-    fontSize: 20,
-    color: "#000",
-  },
-  stepperUnit: { fontSize: 15, color: "#666" },
-  restLabel: { fontSize: 16, color: "#888", marginTop: 8 },
-  nextUp: {
-    fontSize: 15,
-    color: "#555",
-    marginVertical: 20,
-    textAlign: "center",
-  },
-  doneText: { fontSize: 22, fontWeight: "700", marginBottom: 24 },
 });
