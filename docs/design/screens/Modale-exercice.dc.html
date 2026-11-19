@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Sélection d'exercice</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&amp;family=Barlow:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#171514}
+:root{--up:7px 7px 16px rgba(0,0,0,.6),-6px -6px 14px rgba(255,236,220,.05);--up-sm:4px 4px 9px rgba(0,0,0,.55),-3px -3px 8px rgba(255,236,220,.045);--in:inset 5px 5px 11px rgba(0,0,0,.6),inset -4px -4px 10px rgba(255,236,220,.045);--in-sm:inset 3px 3px 6px rgba(0,0,0,.55),inset -2px -2px 5px rgba(255,236,220,.04);--fire:linear-gradient(135deg,#FFD23F 0%,#FF8A1F 50%,#EE4A2B 100%);--glow:0 12px 28px -8px rgba(255,105,35,.6)}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+input{font:inherit;color:inherit;border:0;outline:none;background:transparent;margin:0}
+.fire-text{background:linear-gradient(135deg,#FFD23F 0%,#FF8A1F 55%,#EE4A2B 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.d{font-family:'Chakra Petch','Segoe UI',sans-serif;font-variant-numeric:tabular-nums}
+a{color:#ABA39B}a:hover{color:#F4EEE8}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #121010; color: #F4EEE8; font-family: 'Barlow', 'Segoe UI', Roboto, sans-serif; padding: 40px 14px 0; display: flex; flex-direction: column">
+  <div role="dialog" aria-label="Sélection d'exercice" style="border-radius: 30px; background: #23201E; box-shadow: 0 24px 60px rgba(0,0,0,.7), inset 1px 1px 0 rgba(255,236,220,.05); padding: 20px 18px 10px; display: flex; flex-direction: column; gap: 16px">
+    <div style="height: 56px; border-radius: 18px; box-shadow: var(--in), 0 0 0 1.5px rgba(255,150,50,.55); display: flex; align-items: center; gap: 12px; padding: 0 16px">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8A1F" stroke-width="2" stroke-linecap="round"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+      <input aria-label="Rechercher un exercice" placeholder="Rechercher un exercice..." value="Tract" style="flex: 1; font-size: 17px; font-weight: 600">
+    </div>
+
+    <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px">
+      <li style="display: flex">
+        <button style="flex: 1; min-height: 56px; padding: 0 12px 0 16px; border-radius: 18px; background: linear-gradient(145deg, #282422, #1F1C1A); box-shadow: var(--up-sm); display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left">
+          <span style="font-weight: 600; font-size: 16px">Tractions</span>
+          <span style="height: 28px; padding: 0 10px; border-radius: 999px; box-shadow: var(--in-sm); display: inline-flex; align-items: center; font-size: 13px; font-weight: 600; color: #ABA39B">Répétitions</span>
+        </button>
+      </li>
+      <li style="display: flex">
+        <button style="flex: 1; min-height: 56px; padding: 0 12px 0 16px; border-radius: 18px; background: linear-gradient(145deg, #282422, #1F1C1A); box-shadow: var(--up-sm); display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left">
+          <span style="font-weight: 600; font-size: 16px">Tractions australiennes</span>
+          <span style="height: 28px; padding: 0 10px; border-radius: 999px; box-shadow: var(--in-sm); display: inline-flex; align-items: center; font-size: 13px; font-weight: 600; color: #ABA39B">Répétitions</span>
+        </button>
+      </li>
+      <li style="display: flex">
+        <button style="flex: 1; min-height: 56px; padding: 0 12px 0 16px; border-radius: 18px; background: linear-gradient(145deg, #282422, #1F1C1A); box-shadow: var(--up-sm); display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left">
+          <span style="font-weight: 600; font-size: 16px">Tractions isométriques</span>
+          <span style="height: 28px; padding: 0 10px; border-radius: 999px; box-shadow: var(--in-sm); display: inline-flex; align-items: center; font-size: 13px; font-weight: 600; color: #FFB23F">Temps</span>
+        </button>
+      </li>
+    </ul>
+
+    <div style="border-radius: 22px; box-shadow: var(--in); padding: 16px; display: flex; flex-direction: column; gap: 14px">
+      <p style="margin: 0; font-size: 15px; color: #ABA39B">Aucun résultat ? Créer <span style="color: #F4EEE8; font-weight: 600">“Tract”</span></p>
+      <div role="radiogroup" aria-label="Type d'exercice" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+        <button role="radio" aria-checked="true" style="height: 48px; border-radius: 15px; background: linear-gradient(145deg, #2A2624, #211E1C); box-shadow: var(--up-sm); display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; font-size: 15px">
+
+          <span class="fire-text">Répétitions</span>
+        </button>
+        <button role="radio" aria-checked="false" style="height: 48px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 15px; color: #968E86">Temps</button>
+      </div>
+      <button style="height: 54px; border-radius: 17px; background: var(--fire); box-shadow: var(--glow); color: #1A0F0A"><span class="d" style="font-weight: 800; font-size: 16px; font-stretch: 112%">Créer et ajouter</span></button>
+    </div>
+
+    <a href="#annuler" style="align-self: center; min-height: 44px; padding: 0 16px; display: flex; align-items: center; font-weight: 600; font-size: 15px; text-decoration: none">Annuler</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

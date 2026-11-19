@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Chrono seul — en cours</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&amp;family=Barlow:wght@400;500;600;700&amp;display=swap">
+<style>
+@font-face{font-family:'DSEG7 Modern';src:url('/_blob/610679c7609330780aadecad3f523a39') format('woff2');font-weight:700;font-style:normal;font-display:swap}
+body{margin:0;background:#171514}
+:root{--up:7px 7px 16px rgba(0,0,0,.6),-6px -6px 14px rgba(255,236,220,.05);--up-sm:4px 4px 9px rgba(0,0,0,.55),-3px -3px 8px rgba(255,236,220,.045);--in:inset 5px 5px 11px rgba(0,0,0,.6),inset -4px -4px 10px rgba(255,236,220,.045);--in-sm:inset 3px 3px 6px rgba(0,0,0,.55),inset -2px -2px 5px rgba(255,236,220,.04);--fire:linear-gradient(135deg,#FFD23F 0%,#FF8A1F 50%,#EE4A2B 100%);--glow:0 12px 28px -8px rgba(255,105,35,.6)}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+.d{font-family:'Chakra Petch','Segoe UI',sans-serif;font-variant-numeric:tabular-nums}
+.seg{font-family:'DSEG7 Modern','Courier New',monospace;font-weight:700;line-height:1;white-space:nowrap}
+.ghost{color:rgba(255,236,220,.055)}
+.fire-live{background:linear-gradient(110deg,#FFD23F 0%,#FF8A1F 25%,#EE4A2B 50%,#FF8A1F 75%,#FFD23F 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:flow 5s linear infinite}
+@keyframes flow{to{background-position:-200% 0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes breathe{0%,100%{box-shadow:7px 7px 16px rgba(0,0,0,.6),-6px -6px 14px rgba(255,236,220,.05),0 0 40px -10px rgba(255,110,30,.25)}50%{box-shadow:7px 7px 16px rgba(0,0,0,.6),-6px -6px 14px rgba(255,236,220,.05),0 0 70px -6px rgba(255,110,30,.5)}}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.6)}}
+.spin{animation:spin 1s linear infinite}
+.breathe{animation:breathe 2s ease-in-out infinite}
+.live{animation:pulse-dot 1s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: radial-gradient(90% 45% at 50% 40%, rgba(255,110,30,.12), rgba(255,110,30,0) 70%), #23201E; color: #F4EEE8; font-family: 'Barlow', 'Segoe UI', Roboto, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <header style="padding: 48px 20px 0 24px; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+    <h1 class="d" style="margin: 0; font-weight: 700; font-size: 30px; line-height: 1.1">Chrono</h1>
+    <button aria-label="Couper les bips" style="width: 48px; height: 48px; border-radius: 50%; box-shadow: var(--up-sm); display: grid; place-items: center; color: #FFB23F">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path><path d="M16 9a5 5 0 0 1 0 6"></path><path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path></svg>
+    </button>
+  </header>
+
+  <main style="flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; padding: 22px 24px 0; gap: 24px">
+    <div class="breathe" style="position: relative; width: 280px; height: 280px; border-radius: 50%; background: linear-gradient(145deg, #282422, #1E1B19); display: grid; place-items: center">
+      <svg aria-hidden="true" class="spin" width="280" height="280" viewBox="0 0 280 280" style="position: absolute; inset: 0">
+        <defs><linearGradient id="runfire" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFD23F"></stop><stop offset="1" stop-color="#EE4A2B"></stop></linearGradient></defs>
+        <circle cx="140" cy="140" r="130" fill="none" stroke="url(#runfire)" stroke-width="5" stroke-linecap="round" stroke-dasharray="110 707" style="filter: drop-shadow(0 0 6px rgba(255,130,40,.7))"></circle>
+      </svg>
+      <div style="width: 232px; height: 232px; border-radius: 50%; background: #23201E; box-shadow: var(--in); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; position: relative">
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #ABA39B">
+          <span class="live" style="width: 6px; height: 6px; border-radius: 50%; background: #FF8A1F; box-shadow: 0 0 8px #FF8A1F"></span>En cours
+        </span>
+        <div role="timer" aria-label="{{label}}" style="display: flex; align-items: flex-end; gap: 5px">
+          <span style="display: grid">
+            <span class="seg ghost" aria-hidden="true" style="grid-area: 1 / 1; font-size: {{size}}px">{{ghostMain}}</span>
+            <span class="seg fire-live" style="grid-area: 1 / 1; font-size: {{size}}px">{{main}}</span>
+          </span>
+          <span style="display: grid">
+            <span class="seg ghost" aria-hidden="true" style="grid-area: 1 / 1; font-size: {{csSize}}px">88</span>
+            <span class="seg" style="grid-area: 1 / 1; font-size: {{csSize}}px; color: #ABA39B">{{cs}}</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <button style="width: 100%; height: 62px; border-radius: 20px; background: var(--fire); box-shadow: var(--up-sm), var(--glow); color: #1A0F0A; display: flex; align-items: center; justify-content: center; gap: 10px">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect width="18" height="18" x="3" y="3" rx="2"></rect></svg>
+      <span class="d" style="font-weight: 700; font-size: 17px">Terminé</span>
+    </button>
+
+    <section style="width: 100%; border-radius: 22px; box-shadow: var(--in); padding: 6px 16px; box-sizing: border-box">
+      <button aria-expanded="false" style="width: 100%; min-height: 50px; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+        <span style="font-weight: 600; font-size: 16px">Historique <span style="color: #ABA39B">(3)</span></span>
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#968E86" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+      </button>
+    </section>
+  </main>
+
+  <nav aria-label="Navigation principale" style="margin: 12px 16px 18px; padding: 8px; border-radius: 26px; background: #23201E; box-shadow: var(--up); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+    <button style="height: 56px; border-radius: 19px; display: flex; align-items: center; justify-content: center; gap: 10px; color: #968E86; font-weight: 600; font-size: 15px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+      Home
+    </button>
+    <button aria-current="page" style="height: 56px; border-radius: 19px; box-shadow: var(--in); display: flex; align-items: center; justify-content: center; gap: 10px; color: #FFB23F; font-weight: 600; font-size: 15px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="url(#tabfire3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><defs><linearGradient id="tabfire3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFD23F"></stop><stop offset="0.55" stop-color="#FF8A1F"></stop><stop offset="1" stop-color="#EE4A2B"></stop></linearGradient></defs><line x1="10" x2="14" y1="2" y2="2"></line><line x1="12" x2="15" y1="14" y2="11"></line><circle cx="12" cy="14" r="8"></circle></svg>
+      Chrono
+    </button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  st() {
+    return Object.assign({ ms: 3592000 }, this.state || {});
+  }
+  componentDidMount() {
+    this.t0 = Date.now() - this.st().ms;
+    this.timer = setInterval(() => {
+      let ms = Date.now() - this.t0;
+      if (ms >= 3612000) { this.t0 = Date.now() - 3592000; ms = 3592000; }
+      this.setState({ ms: ms });
+    }, 31);
+  }
+  componentWillUnmount() {
+    clearInterval(this.timer);
+  }
+  renderVals() {
+    const ms = this.st().ms;
+    const p = (x) => String(x).padStart(2, '0');
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor(ms / 60000) % 60;
+    const s = Math.floor(ms / 1000) % 60;
+    const c = Math.floor(ms / 10) % 100;
+    const main = (h > 0 ? h + ':' + p(m) : String(m)) + ':' + p(s) + '.';
+    const size = h >= 10 ? 30 : (h > 0 ? 36 : 46);
+    return {
+      main: main,
+      ghostMain: main.replace(/\d/g, '8'),
+      cs: p(c),
+      size: size,
+      csSize: Math.round(size * 0.5),
+      label: (h > 0 ? h + ' heures ' : '') + m + ' minutes ' + s + ' secondes'
+    };
+  }
+}
+</script>
+</body>
+</html>

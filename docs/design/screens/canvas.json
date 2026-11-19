@@ -1,0 +1,163 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Chrono.dc.html": {
+      "h": 844,
+      "title": "6. Chrono seul (interactif)",
+      "w": 390,
+      "x": 1730,
+      "y": 0,
+      "is_interactive": true
+    },
+    "Chrono-en-cours.dc.html": {
+      "h": 844,
+      "title": "6. Chrono seul — en cours",
+      "w": 390,
+      "x": 2200,
+      "y": 0
+    },
+    "Polices.dc.html": {
+      "h": 1120,
+      "title": "Propositions de polices",
+      "w": 1400,
+      "x": 2670,
+      "y": 0
+    },
+    "Creation.dc.html": {
+      "h": 1500,
+      "title": "2. Création (et Duplication)",
+      "w": 390,
+      "x": 0,
+      "y": 1244
+    },
+    "Detail.dc.html": {
+      "h": 1300,
+      "title": "3. Détail d'un entrainement",
+      "w": 390,
+      "x": 940,
+      "y": 1244
+    },
+    "Main.dc.html": {
+      "h": 844,
+      "title": "1. Accueil",
+      "w": 390,
+      "x": 1260,
+      "y": 0
+    },
+    "Modale-exercice.dc.html": {
+      "h": 844,
+      "title": "7. Modale de sélection d'exercice",
+      "w": 390,
+      "x": 470,
+      "y": 1244
+    },
+    "Seance-chrono.dc.html": {
+      "h": 844,
+      "title": "5.1 Exercice temps — chrono",
+      "w": 390,
+      "x": 940,
+      "y": 3144
+    },
+    "Seance-decompte.dc.html": {
+      "h": 844,
+      "title": "5.1 Exercice temps — décompte",
+      "w": 390,
+      "x": 470,
+      "y": 3144
+    },
+    "Seance-exercice.dc.html": {
+      "h": 844,
+      "title": "5.1 Exercice — répétitions",
+      "w": 390,
+      "x": 0,
+      "y": 3144
+    },
+    "Seance-recap.dc.html": {
+      "h": 1000,
+      "title": "5.3 Récap",
+      "w": 390,
+      "x": 1880,
+      "y": 3144
+    },
+    "Seance-repos.dc.html": {
+      "h": 844,
+      "title": "5.2 Révision / repos (interactif)",
+      "w": 390,
+      "x": 1410,
+      "y": 3144,
+      "is_interactive": true
+    },
+    "Systeme.dc.html": {
+      "h": 844,
+      "title": "Système visuel",
+      "w": 1180,
+      "x": 0,
+      "y": 0
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-11-12T00:20:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "noteOrder": [
+    "row1",
+    "row2",
+    "dup",
+    "row3"
+  ],
+  "notes": {
+    "dup": {
+      "fill": "orange",
+      "text": "Duplication = l'écran Création à l'identique : titre « Dupliquer \"Push day\" », formulaire prérempli (« Push day (2) »), bouton final « Créer la copie ».",
+      "w": 320,
+      "x": 1410,
+      "y": 1244
+    },
+    "row1": {
+      "kind": "title1",
+      "maxW": 4070,
+      "text": "Système & écrans d'onglets",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "row2": {
+      "kind": "title1",
+      "maxW": 1720,
+      "text": "Gestion des entrainements",
+      "w": 240,
+      "x": 0,
+      "y": 944
+    },
+    "row3": {
+      "kind": "title1",
+      "maxW": 2270,
+      "text": "Séance en cours",
+      "w": 240,
+      "x": 0,
+      "y": 2844
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Systeme.dc.html",
+    "Chrono.dc.html",
+    "Chrono-en-cours.dc.html",
+    "Polices.dc.html",
+    "Creation.dc.html",
+    "Modale-exercice.dc.html",
+    "Detail.dc.html",
+    "Seance-exercice.dc.html",
+    "Seance-decompte.dc.html",
+    "Seance-chrono.dc.html",
+    "Seance-repos.dc.html",
+    "Seance-recap.dc.html"
+  ],
+  "pages": [],
+  "title": "Appli callisthénie — Feu & relief"
+}

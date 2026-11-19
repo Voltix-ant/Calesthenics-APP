@@ -3,17 +3,17 @@ import {
   ExerciseRow,
 } from "@/components/exercise-picker-modal";
 import { KeyboardAvoidingContainer } from "@/components/keyboard-avoiding-container";
+import { FireButton } from "@/components/ui/fire-button";
+import { GradientText } from "@/components/ui/gradient-text";
+import { Neu } from "@/components/ui/neu";
+import { NeuTextInput } from "@/components/ui/neu-text-input";
+import { ScreenHeader } from "@/components/ui/screen-header";
+import { body, colors, display, em } from "@/constants/theme";
 import { useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
+import { ArrowDown, ArrowUp, Pause, Plus, X } from "lucide-react-native";
 import { useRef, useState } from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // ---- Types (exportés pour que l'écran d'édition puisse construire des BlockDraft) ----
@@ -39,11 +39,98 @@ export type BlockDraft =
       restSeconds: number;
     };
 
+// ---- Sous-composants communs aux deux types de bloc ----
+
+// Boutons ↑ ↓ ✕ de l'en-tête d'un bloc. Une flèche sans effet (1er bloc pour
+// ↑, dernier pour ↓) est grisée, comme dans la maquette.
+function BlockActions({
+  isFirst,
+  isLast,
+  onMoveUp,
+  onMoveDown,
+  onRemove,
+}: {
+  isFirst: boolean;
+  isLast: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <>
+      <Neu
+        variant="up-sm"
+        style={styles.blockAction}
+        onPress={onMoveUp}
+        disabled={isFirst}
+        accessibilityLabel="Monter le bloc"
+        accessibilityState={{ disabled: isFirst }}
+      >
+        <ArrowUp
+          size={18}
+          strokeWidth={2}
+          color={isFirst ? colors.textTertiary : colors.textSecondary}
+        />
+      </Neu>
+      <Neu
+        variant="up-sm"
+        style={styles.blockAction}
+        onPress={onMoveDown}
+        disabled={isLast}
+        accessibilityLabel="Descendre le bloc"
+        accessibilityState={{ disabled: isLast }}
+      >
+        <ArrowDown
+          size={18}
+          strokeWidth={2}
+          color={isLast ? colors.textTertiary : colors.textSecondary}
+        />
+      </Neu>
+      <Neu
+        variant="up-sm"
+        style={styles.blockAction}
+        onPress={onRemove}
+        accessibilityLabel="Supprimer le bloc"
+      >
+        <X size={16} strokeWidth={2} color={colors.destructive} />
+      </Neu>
+    </>
+  );
+}
+
+// Champ numérique 76×46 des séries et des repos.
+function NumberField({
+  value,
+  onChange,
+  raised = false,
+  accessibilityLabel,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  /** En relief (durée d'un bloc repos, posé sur un fond creusé) */
+  raised?: boolean;
+  accessibilityLabel: string;
+}) {
+  return (
+    <NeuTextInput
+      variant={raised ? "up-sm" : "in-sm"}
+      surface={raised ? "flat" : undefined}
+      containerStyle={styles.numberField}
+      style={styles.numberInput}
+      keyboardType="number-pad"
+      value={value.toString()}
+      onChangeText={(text) => onChange(parseInt(text) || 0)}
+      accessibilityLabel={accessibilityLabel}
+    />
+  );
+}
+
 // ---- Sous-composant : carte d'un bloc "exercice" ----
 
 function ExerciseBlockCard({
   block,
   index,
+  isLast,
   onRemove,
   onMoveUp,
   onMoveDown,
@@ -54,6 +141,7 @@ function ExerciseBlockCard({
 }: {
   block: Extract<BlockDraft, { type: "exercise" }>;
   index: number;
+  isLast: boolean;
   onRemove: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
@@ -65,59 +153,70 @@ function ExerciseBlockCard({
   const unit = block.exerciseType === "reps" ? "reps" : "sec";
 
   return (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>
-          {index + 1}. {block.exerciseName}
+    <Neu variant="up" surface="card" style={styles.exerciseCard}>
+      <View style={styles.blockHeader}>
+        <View style={styles.blockNumber}>
+          <GradientText
+            style={styles.blockNumberText}
+          >{`${index + 1}.`}</GradientText>
+        </View>
+        <Text style={styles.blockTitle} numberOfLines={2}>
+          {block.exerciseName}
         </Text>
-        <View style={styles.cardHeaderActions}>
-          <TouchableOpacity onPress={onMoveUp}>
-            <Text style={styles.smallButton}>↑</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onMoveDown}>
-            <Text style={styles.smallButton}>↓</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onRemove}>
-            <Text style={[styles.smallButton, styles.deleteButton]}>✕</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {block.sets.map((set, setIndex) => (
-        <View key={set.id} style={styles.setRow}>
-          <Text style={styles.setLabel}>Série {setIndex + 1}</Text>
-          <TextInput
-            style={styles.setInput}
-            keyboardType="number-pad"
-            value={set.targetValue.toString()}
-            onChangeText={(text) =>
-              onUpdateSetTarget(set.id, parseInt(text) || 0)
-            }
-          />
-          <Text style={styles.setUnit}>{unit}</Text>
-          {block.sets.length > 1 && (
-            <TouchableOpacity onPress={() => onRemoveSet(set.id)}>
-              <Text style={styles.deleteButton}>✕</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      ))}
-
-      <TouchableOpacity onPress={onAddSet}>
-        <Text style={styles.addSetText}>+ Ajouter une série</Text>
-      </TouchableOpacity>
-
-      <View style={styles.setRow}>
-        <Text style={styles.setLabel}>Repos entre séries</Text>
-        <TextInput
-          style={styles.setInput}
-          keyboardType="number-pad"
-          value={block.restBetweenSets.toString()}
-          onChangeText={(text) => onUpdateRest(parseInt(text) || 0)}
+        <BlockActions
+          isFirst={index === 0}
+          isLast={isLast}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
+          onRemove={onRemove}
         />
-        <Text style={styles.setUnit}>sec</Text>
       </View>
-    </View>
+
+      <View style={styles.sets}>
+        {block.sets.map((set, setIndex) => (
+          <View key={set.id} style={styles.setRow}>
+            <Text style={styles.setLabel}>Série {setIndex + 1}</Text>
+            <NumberField
+              value={set.targetValue}
+              onChange={(value) => onUpdateSetTarget(set.id, value)}
+              accessibilityLabel={`Objectif série ${setIndex + 1}`}
+            />
+            <Text style={styles.setUnit}>{unit}</Text>
+            {block.sets.length > 1 && (
+              <Pressable
+                style={styles.removeSet}
+                onPress={() => onRemoveSet(set.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`Supprimer la série ${setIndex + 1}`}
+              >
+                <X size={16} strokeWidth={2} color={colors.textTertiary} />
+              </Pressable>
+            )}
+          </View>
+        ))}
+      </View>
+
+      <Pressable
+        style={styles.addSet}
+        onPress={onAddSet}
+        accessibilityRole="button"
+      >
+        <Plus size={16} strokeWidth={2} color={colors.tabActive} />
+        <Text style={styles.addSetText}>Ajouter une série</Text>
+      </Pressable>
+
+      <Neu variant="in-sm" style={styles.divider} />
+
+      <View style={styles.restRow}>
+        <Text style={styles.restLabel}>Repos entre séries</Text>
+        <NumberField
+          value={block.restBetweenSets}
+          onChange={onUpdateRest}
+          accessibilityLabel="Repos entre séries"
+        />
+        <Text style={styles.restUnit}>sec</Text>
+      </View>
+    </Neu>
   );
 }
 
@@ -126,6 +225,7 @@ function ExerciseBlockCard({
 function RestBlockCard({
   block,
   index,
+  isLast,
   onRemove,
   onMoveUp,
   onMoveDown,
@@ -133,44 +233,49 @@ function RestBlockCard({
 }: {
   block: Extract<BlockDraft, { type: "rest" }>;
   index: number;
+  isLast: boolean;
   onRemove: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
   onUpdateDuration: (value: number) => void;
 }) {
   return (
-    <View style={[styles.card, styles.restCard]}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{index + 1}. Repos</Text>
-        <View style={styles.cardHeaderActions}>
-          <TouchableOpacity onPress={onMoveUp}>
-            <Text style={styles.smallButton}>↑</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onMoveDown}>
-            <Text style={styles.smallButton}>↓</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onRemove}>
-            <Text style={[styles.smallButton, styles.deleteButton]}>✕</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      <View style={styles.setRow}>
-        <Text style={styles.setLabel}>Durée</Text>
-        <TextInput
-          style={styles.setInput}
-          keyboardType="number-pad"
-          value={block.restSeconds.toString()}
-          onChangeText={(text) => onUpdateDuration(parseInt(text) || 0)}
+    <Neu variant="in" style={styles.restCard}>
+      <View style={styles.blockHeader}>
+        <Text
+          style={[styles.blockNumber, styles.blockNumberText, styles.muted]}
+        >
+          {index + 1}.
+        </Text>
+        <Pause size={18} strokeWidth={2} color={colors.textSecondary} />
+        <Text style={[styles.blockTitle, styles.restTitle]}>Repos</Text>
+        <BlockActions
+          isFirst={index === 0}
+          isLast={isLast}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
+          onRemove={onRemove}
         />
-        <Text style={styles.setUnit}>sec</Text>
       </View>
-    </View>
+      <View style={styles.restRow}>
+        <Text style={styles.restLabel}>Durée</Text>
+        <NumberField
+          value={block.restSeconds}
+          onChange={onUpdateDuration}
+          raised
+          accessibilityLabel="Durée du repos"
+        />
+        <Text style={styles.restUnit}>sec</Text>
+      </View>
+    </Neu>
   );
 }
 
 // ---- Le formulaire partagé création / édition ----
 
 type WorkoutFormProps = {
+  /** Titre de l'en-tête de l'écran */
+  title: string;
   initialName?: string;
   initialDescription?: string;
   initialBlocks?: BlockDraft[];
@@ -178,6 +283,7 @@ type WorkoutFormProps = {
 };
 
 export function WorkoutForm({
+  title,
   initialName = "",
   initialDescription = "",
   initialBlocks = [],
@@ -327,167 +433,244 @@ export function WorkoutForm({
   };
 
   return (
-    <KeyboardAvoidingContainer>
-      <ScrollView
-        style={styles.container}
-        // Sans ça, quand le clavier est ouvert, le 1er appui sur un bouton
-        // ne fait que fermer le clavier au lieu d'activer le bouton
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + 32 },
-        ]}
-      >
-        <Text style={styles.label}>Nom de l'entrainement</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={setName}
-          placeholder="Ex: Push day"
-          placeholderTextColor="#999"
-        />
-
-        <Text style={styles.label}>Description (optionnel)</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={description}
-          onChangeText={setDescription}
-          placeholder="Notes, objectifs, contexte..."
-          placeholderTextColor="#999"
-          multiline
-        />
-
-        {blocks.map((block, index) =>
-          block.type === "exercise" ? (
-            <ExerciseBlockCard
-              key={block.id}
-              block={block}
-              index={index}
-              onRemove={() => removeBlock(block.id)}
-              onMoveUp={() => moveBlock(block.id, -1)}
-              onMoveDown={() => moveBlock(block.id, 1)}
-              onUpdateRest={(value) =>
-                updateBlock(block.id, { restBetweenSets: value })
-              }
-              onAddSet={() => addSet(block.id)}
-              onRemoveSet={(setId) => removeSet(block.id, setId)}
-              onUpdateSetTarget={(setId, value) =>
-                updateSetTarget(block.id, setId, value)
-              }
+    <View style={styles.screen}>
+      <ScreenHeader title={title} />
+      <KeyboardAvoidingContainer>
+        <ScrollView
+          // Sans ça, quand le clavier est ouvert, le 1er appui sur un bouton
+          // ne fait que fermer le clavier au lieu d'activer le bouton
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: 36 + insets.bottom },
+          ]}
+        >
+          <View style={styles.field}>
+            <Text style={styles.label}>Nom de l'entrainement</Text>
+            <NeuTextInput
+              containerStyle={styles.nameField}
+              style={styles.nameInput}
+              value={name}
+              onChangeText={setName}
+              placeholder="Ex: Push day"
+              accessibilityLabel="Nom de l'entrainement"
             />
-          ) : (
-            <RestBlockCard
-              key={block.id}
-              block={block}
-              index={index}
-              onRemove={() => removeBlock(block.id)}
-              onMoveUp={() => moveBlock(block.id, -1)}
-              onMoveDown={() => moveBlock(block.id, 1)}
-              onUpdateDuration={(value) =>
-                updateBlock(block.id, { restSeconds: value })
-              }
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>Description (optionnel)</Text>
+            <NeuTextInput
+              containerStyle={styles.descriptionField}
+              style={styles.descriptionInput}
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Notes, objectifs, contexte..."
+              multiline
+              accessibilityLabel="Description"
             />
-          ),
-        )}
+          </View>
 
-        <View style={styles.addBlockRow}>
-          <TouchableOpacity
-            style={styles.addBlockButton}
-            onPress={openExercisePicker}
-          >
-            <Text style={styles.addBlockButtonText}>+ Exercice</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.addBlockButton}
-            onPress={addRestBlock}
-          >
-            <Text style={styles.addBlockButtonText}>+ Repos</Text>
-          </TouchableOpacity>
-        </View>
+          {blocks.length > 0 && (
+            <View style={styles.blocks}>
+              {blocks.map((block, index) =>
+                block.type === "exercise" ? (
+                  <ExerciseBlockCard
+                    key={block.id}
+                    block={block}
+                    index={index}
+                    isLast={index === blocks.length - 1}
+                    onRemove={() => removeBlock(block.id)}
+                    onMoveUp={() => moveBlock(block.id, -1)}
+                    onMoveDown={() => moveBlock(block.id, 1)}
+                    onUpdateRest={(value) =>
+                      updateBlock(block.id, { restBetweenSets: value })
+                    }
+                    onAddSet={() => addSet(block.id)}
+                    onRemoveSet={(setId) => removeSet(block.id, setId)}
+                    onUpdateSetTarget={(setId, value) =>
+                      updateSetTarget(block.id, setId, value)
+                    }
+                  />
+                ) : (
+                  <RestBlockCard
+                    key={block.id}
+                    block={block}
+                    index={index}
+                    isLast={index === blocks.length - 1}
+                    onRemove={() => removeBlock(block.id)}
+                    onMoveUp={() => moveBlock(block.id, -1)}
+                    onMoveDown={() => moveBlock(block.id, 1)}
+                    onUpdateDuration={(value) =>
+                      updateBlock(block.id, { restSeconds: value })
+                    }
+                  />
+                ),
+              )}
+            </View>
+          )}
 
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>{submitLabel}</Text>
-        </TouchableOpacity>
-      </ScrollView>
+          <View style={styles.addBlockRow}>
+            <Neu
+              variant="up-sm"
+              surface="flat"
+              style={styles.addBlockButton}
+              onPress={openExercisePicker}
+            >
+              <Plus size={18} strokeWidth={2} color={colors.fireMid} />
+              <Text style={styles.addBlockLabel}>Exercice</Text>
+            </Neu>
+            <Neu
+              variant="up-sm"
+              surface="flat"
+              style={styles.addBlockButton}
+              onPress={addRestBlock}
+            >
+              <Plus size={18} strokeWidth={2} color={colors.fireMid} />
+              <Text style={styles.addBlockLabel}>Repos</Text>
+            </Neu>
+          </View>
+
+          <FireButton
+            label={submitLabel}
+            onPress={handleSave}
+            style={styles.saveButton}
+            labelStyle={styles.saveLabel}
+          />
+        </ScrollView>
+      </KeyboardAvoidingContainer>
 
       <ExercisePickerModal
         visible={pickerVisible}
         onClose={() => setPickerVisible(false)}
         onSelectExercise={addExerciseBlock}
       />
-    </KeyboardAvoidingContainer>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  scrollContent: { paddingBottom: 32 },
-  label: { fontSize: 14, color: "#555", marginBottom: 8 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 16,
-    color: "#fff",
+  screen: { flex: 1, backgroundColor: colors.background },
+  content: {
+    paddingTop: 16,
+    paddingHorizontal: 24,
+    gap: 22,
   },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: "top",
+
+  // Champs généraux
+  field: { gap: 10 },
+  label: {
+    ...body(600),
+    fontSize: 12,
+    letterSpacing: em(0.12, 12),
+    textTransform: "uppercase",
+    color: colors.textSecondary,
   },
-  card: {
-    backgroundColor: "#f2f2f2",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
+  nameField: { height: 56, paddingHorizontal: 18, borderRadius: 18 },
+  nameInput: { ...body(600), fontSize: 17 },
+  descriptionField: {
+    minHeight: 96,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    borderRadius: 18,
   },
-  restCard: { backgroundColor: "#e8e8f5" },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  descriptionInput: { fontSize: 16, textAlignVertical: "top" },
+
+  // Blocs
+  blocks: { gap: 20, paddingTop: 6 },
+  exerciseCard: {
+    borderRadius: 24,
+    paddingTop: 14,
+    paddingRight: 14,
+    paddingBottom: 18,
+    paddingLeft: 18,
+    gap: 14,
+  },
+  restCard: {
+    borderRadius: 24,
+    paddingTop: 14,
+    paddingRight: 14,
+    paddingBottom: 16,
+    paddingLeft: 18,
+    gap: 12,
+  },
+  blockHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  blockNumber: { minWidth: 30 },
+  blockNumberText: { ...display(700), fontSize: 22 },
+  muted: { color: colors.textTertiary },
+  blockTitle: { ...display(700), fontSize: 18, flex: 1 },
+  restTitle: { color: colors.textSecondary },
+  blockAction: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: "center",
-    marginBottom: 8,
+    justifyContent: "center",
   },
-  cardTitle: { fontSize: 16, fontWeight: "600" },
-  cardHeaderActions: { flexDirection: "row", gap: 12 },
-  smallButton: { fontSize: 18, paddingHorizontal: 4 },
-  deleteButton: { color: "#c00" },
-  setRow: {
+
+  // Séries
+  sets: { gap: 10 },
+  setRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  setLabel: {
+    ...body(600),
+    width: 64,
+    fontSize: 15,
+    color: colors.textSecondary,
+  },
+  setUnit: { ...body(400), flex: 1, fontSize: 15, color: colors.textSecondary },
+  removeSet: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  numberField: { width: 76, height: 46, borderRadius: 14 },
+  numberInput: { ...display(700), fontSize: 18, textAlign: "center" },
+  addSet: {
+    height: 46,
+    marginRight: 4,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: "rgba(255,170,70,0.38)",
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 6,
+    justifyContent: "center",
     gap: 8,
   },
-  setLabel: { flex: 1, fontSize: 14 },
-  setInput: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 6,
-    padding: 6,
-    width: 60,
-    textAlign: "center",
-    backgroundColor: "#fff",
-    color: "#000",
+  addSetText: { ...body(600), fontSize: 15, color: colors.tabActive },
+  divider: { height: 3, marginRight: 4, borderRadius: 3 },
+  restRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingRight: 48,
   },
-  setUnit: { fontSize: 13, color: "#666", width: 36 },
-  addSetText: { color: "#007aff", marginBottom: 8 },
-  addBlockRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
+  restLabel: {
+    ...body(600),
+    flex: 1,
+    fontSize: 15,
+    color: colors.textSecondary,
+  },
+  restUnit: {
+    ...body(400),
+    width: 32,
+    fontSize: 15,
+    color: colors.textSecondary,
+  },
+
+  // Actions
+  addBlockRow: { flexDirection: "row", gap: 16, paddingTop: 4 },
   addBlockButton: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: "#fff",
-    borderRadius: 8,
-    padding: 14,
+    height: 56,
+    borderRadius: 18,
+    flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
+    justifyContent: "center",
+    gap: 8,
   },
-  addBlockButtonText: { fontWeight: "600" },
-  saveButton: {
-    backgroundColor: "#222",
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  saveButtonText: { color: "#fff", fontWeight: "600" },
+  addBlockLabel: { ...body(600), fontSize: 16 },
+  saveButton: { height: 62, borderRadius: 20 },
+  saveLabel: { fontSize: 17 },
 });
