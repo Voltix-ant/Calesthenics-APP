@@ -28,9 +28,18 @@ export default function WorkoutsScreen() {
   // Évite d'afficher « Aucun entrainement » le temps de la première lecture.
   const [loaded, setLoaded] = useState(false);
 
+  // Tri : le dernier entrainement réalisé en haut. Un entrainement jamais
+  // réalisé est classé selon sa date de création (un tout nouveau arrive
+  // donc en haut, puis descend à mesure que les autres sont faits).
+  // Le LEFT JOIN garde aussi les entrainements sans aucune séance : pour eux,
+  // MAX(performed_at) vaut NULL et COALESCE prend la date de création.
   const loadWorkouts = async () => {
     const result = await db.getAllAsync<Workout>(
-      "SELECT id, name, created_at FROM workouts ORDER BY created_at DESC",
+      `SELECT w.id, w.name, w.created_at
+         FROM workouts w
+         LEFT JOIN sessions s ON s.workout_id = w.id
+        GROUP BY w.id
+        ORDER BY COALESCE(MAX(s.performed_at), w.created_at) DESC, w.id DESC`,
     );
     setWorkouts(result);
     setLoaded(true);
