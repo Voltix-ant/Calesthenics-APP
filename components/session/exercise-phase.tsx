@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Chip } from "@/components/ui/chip";
 import { FireButton } from "@/components/ui/fire-button";
+import { FitScrollView } from "@/components/ui/fit-scroll-view";
 import { GradientText } from "@/components/ui/gradient-text";
 import { Neu } from "@/components/ui/neu";
 import { LiveFireButton } from "@/components/ui/live-fire-button";
@@ -54,6 +55,34 @@ function SetChip({ step }: { step: SessionStep }) {
   );
 }
 
+// Taille du nom selon sa longueur : un nom long s'écrit plus petit, pour ne
+// pas repousser le bouton d'action hors de l'écran.
+function nameSize(name: string, base: number) {
+  const length = name.length;
+  if (length <= 12) return base;
+  if (length <= 20) return Math.round(base * 0.8);
+  if (length <= 30) return Math.round(base * 0.62);
+  if (length <= 45) return Math.round(base * 0.5);
+  return Math.round(base * 0.42);
+}
+
+// Nom de l'exercice, limité à 4 lignes (« … » au-delà) : filet de sécurité
+// pour les noms très longs déjà enregistrés.
+function ExerciseName({ name, base }: { name: string; base: number }) {
+  const size = nameSize(name, base);
+  return (
+    <Text
+      style={[
+        styles.name,
+        { fontSize: size, lineHeight: size, letterSpacing: em(-0.02, size) },
+      ]}
+      numberOfLines={4}
+    >
+      {name}
+    </Text>
+  );
+}
+
 // « Objectif : 45 sec », valeur en gras
 function ObjectiveLine({ step, size }: { step: SessionStep; size: number }) {
   return (
@@ -83,8 +112,8 @@ function ReadyView({
   const reducedMotion = useReducedMotion();
 
   return (
-    <View
-      style={[
+    <FitScrollView
+      contentContainerStyle={[
         styles.main,
         { paddingTop: 44, paddingBottom: screenBottom(48, insets.bottom) },
       ]}
@@ -95,7 +124,7 @@ function ReadyView({
         entering={motion(reducedMotion, rise(0))}
       >
         <SetChip step={step} />
-        <Text style={[styles.name, styles.nameLarge]}>{step.exerciseName}</Text>
+        <ExerciseName name={step.exerciseName} base={54} />
       </Animated.View>
 
       <Animated.View
@@ -134,7 +163,7 @@ function ReadyView({
           labelStyle={styles.ctaLabel}
         />
       </Animated.View>
-    </View>
+    </FitScrollView>
   );
 }
 
@@ -174,8 +203,8 @@ function CountdownView({
   });
 
   return (
-    <View
-      style={[
+    <FitScrollView
+      contentContainerStyle={[
         styles.main,
         { paddingTop: 36, paddingBottom: screenBottom(72, insets.bottom) },
       ]}
@@ -185,9 +214,7 @@ function CountdownView({
         entering={motion(reducedMotion, rise(0))}
       >
         <SetChip step={step} />
-        <Text style={[styles.name, styles.nameMedium]}>
-          {step.exerciseName}
-        </Text>
+        <ExerciseName name={step.exerciseName} base={46} />
         <View style={styles.objectiveRow}>
           <ObjectiveLine step={step} size={15} />
           <RecordBadge value={step.record} unit={unitOf(step)} size="sm" />
@@ -220,7 +247,7 @@ function CountdownView({
           </Neu>
         </View>
       </View>
-    </View>
+    </FitScrollView>
   );
 }
 
@@ -267,17 +294,15 @@ function TimingView({
   const strongHaloStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
 
   return (
-    <View
-      style={[
+    <FitScrollView
+      contentContainerStyle={[
         styles.main,
         { paddingTop: 32, paddingBottom: screenBottom(48, insets.bottom) },
       ]}
     >
       <View style={[styles.titleGroup, { gap: 12 }]}>
         <SetChip step={step} />
-        <Text style={[styles.name, styles.nameMedium]}>
-          {step.exerciseName}
-        </Text>
+        <ExerciseName name={step.exerciseName} base={46} />
       </View>
 
       <View style={styles.timerDial}>
@@ -336,7 +361,7 @@ function TimingView({
           labelStyle={styles.finishLabel}
         />
       </View>
-    </View>
+    </FitScrollView>
   );
 }
 
@@ -401,8 +426,10 @@ export function ExercisePhaseView({
 }
 
 const styles = StyleSheet.create({
+  // Style du contenu de <FitScrollView> : flexGrow (et non flex: 1) pour
+  // qu'il puisse dépasser et défiler
   main: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 24,
@@ -416,8 +443,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   name: { ...display(700), textAlign: "center" },
-  nameLarge: { fontSize: 54, lineHeight: 54, letterSpacing: em(-0.02, 54) },
-  nameMedium: { fontSize: 46, lineHeight: 46, letterSpacing: em(-0.02, 46) },
 
   // État « prêt »
   objectiveGroup: { alignItems: "center", gap: 10 },

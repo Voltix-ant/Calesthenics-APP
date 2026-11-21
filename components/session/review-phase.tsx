@@ -1,5 +1,5 @@
 import { ArrowRight, ChevronsRight } from "lucide-react-native";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useFrameCallback,
@@ -9,6 +9,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FireButton } from "@/components/ui/fire-button";
+import { FitScrollView } from "@/components/ui/fit-scroll-view";
 import { GradientText } from "@/components/ui/gradient-text";
 import { Neu } from "@/components/ui/neu";
 import { Ring } from "@/components/ui/ring";
@@ -80,8 +81,11 @@ export function ReviewPhaseView({
     reducedMotion ? undefined : animation;
 
   return (
-    <View
-      style={[styles.main, { paddingBottom: screenBottom(44, insets.bottom) }]}
+    <FitScrollView
+      contentContainerStyle={[
+        styles.main,
+        { paddingBottom: screenBottom(44, insets.bottom) },
+      ]}
     >
       <Animated.View entering={enter(rise(0))}>
         <Neu variant="up" surface="card" style={styles.resultCard}>
@@ -187,13 +191,14 @@ export function ReviewPhaseView({
           />
         </Animated.View>
       )}
-    </View>
+    </FitScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  // Contenu de <FitScrollView> : flexGrow, pas flex: 1
   main: {
-    flex: 1,
+    flexGrow: 1,
     paddingTop: 28,
     paddingHorizontal: 24,
     gap: 26,
