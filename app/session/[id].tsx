@@ -3,6 +3,7 @@ import { ExercisePhaseView } from "@/components/session/exercise-phase";
 import { ReviewPhaseView } from "@/components/session/review-phase";
 import { SessionRecap } from "@/components/session/session-recap";
 import { SessionTopBar } from "@/components/session/session-top-bar";
+import { useDialog } from "@/components/ui/dialog";
 import { body, colors, gradients } from "@/constants/theme";
 import { useCountdownBeeps } from "@/hooks/use-countdown-beeps";
 import type { SessionStep } from "@/types/session";
@@ -11,7 +12,7 @@ import { useKeepAwake } from "expo-keep-awake";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useRef, useState } from "react";
-import { Alert, AppState, StyleSheet, Text, View } from "react-native";
+import { AppState, StyleSheet, Text, View } from "react-native";
 
 // ---- Types bruts issus de la BDD ----
 
@@ -173,6 +174,7 @@ function SessionRunner({
 }) {
   const router = useRouter();
   const db = useSQLiteContext();
+  const showDialog = useDialog();
 
   // ---- State de la séance ----
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -394,12 +396,17 @@ function SessionRunner({
       await saveSession(performedValues);
     } catch {
       setIsSaving(false);
-      Alert.alert("Erreur", "La séance n'a pas pu être enregistrée.");
+      showDialog({
+        title: "Erreur",
+        message: "La séance n'a pas pu être enregistrée.",
+      });
       return;
     }
-    Alert.alert("Séance enregistrée !", "Bien joué 💪", [
-      { text: "OK", onPress: () => router.back() },
-    ]);
+    showDialog({
+      title: "Séance enregistrée !",
+      message: "Bien joué 💪",
+      buttons: [{ text: "OK", onPress: () => router.back() }],
+    });
   };
 
   const handleAbort = () => {
@@ -410,10 +417,11 @@ function SessionRunner({
       return;
     }
 
-    Alert.alert(
-      "Arrêter l'entrainement ?",
-      "Les séries restantes seront enregistrées avec les valeurs par défaut (dernière performance ou objectif si première fois).",
-      [
+    showDialog({
+      title: "Arrêter l'entrainement ?",
+      message:
+        "Les séries restantes seront enregistrées avec les valeurs par défaut (dernière performance ou objectif si première fois).",
+      buttons: [
         { text: "Annuler", style: "cancel" },
         {
           text: "Arrêter et enregistrer",
@@ -429,12 +437,20 @@ function SessionRunner({
                 finalValues[i] = steps[i].targetValue;
               }
             }
-            await saveSession(finalValues);
+            try {
+              await saveSession(finalValues);
+            } catch {
+              showDialog({
+                title: "Erreur",
+                message: "La séance n'a pas pu être enregistrée.",
+              });
+              return;
+            }
             router.back();
           },
         },
       ],
-    );
+    });
   };
 
   // ---- Rendu ----
