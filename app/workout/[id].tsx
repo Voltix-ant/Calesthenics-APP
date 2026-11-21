@@ -274,15 +274,36 @@ export default function WorkoutDetailScreen() {
   const handleDelete = () => {
     Alert.alert(
       "Supprimer cet entrainement ?",
-      "Cette action est irréversible.",
+      "Son historique de séances sera aussi supprimé. Cette action est irréversible.",
       [
         { text: "Annuler", style: "cancel" },
         {
           text: "Supprimer",
           style: "destructive",
           onPress: async () => {
-            await db.runAsync("DELETE FROM workouts WHERE id = ?", workoutId);
-            router.back();
+            try {
+              // La table sessions référence workouts sans « ON DELETE
+              // CASCADE » : tant qu'il reste des séances, SQLite refuse de
+              // supprimer l'entrainement (clés étrangères activées). On
+              // supprime donc d'abord ses séances ; leurs performances
+              // partent avec elles (cascade sur session_id).
+              await db.withTransactionAsync(async () => {
+                await db.runAsync(
+                  "DELETE FROM sessions WHERE workout_id = ?",
+                  workoutId,
+                );
+                await db.runAsync(
+                  "DELETE FROM workouts WHERE id = ?",
+                  workoutId,
+                );
+              });
+              router.back();
+            } catch {
+              Alert.alert(
+                "Erreur",
+                "Impossible de supprimer cet entrainement.",
+              );
+            }
           },
         },
       ],
