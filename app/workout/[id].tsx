@@ -15,7 +15,6 @@ import {
 } from "lucide-react-native";
 import { useState } from "react";
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,6 +23,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useDialog } from "@/components/ui/dialog";
 import { FireButton } from "@/components/ui/fire-button";
 import { GradientText } from "@/components/ui/gradient-text";
 import { Neu } from "@/components/ui/neu";
@@ -156,6 +156,7 @@ export default function WorkoutDetailScreen() {
 
   const router = useRouter();
   const db = useSQLiteContext();
+  const showDialog = useDialog();
   const insets = useSafeAreaInsets();
 
   const [workout, setWorkout] = useState<WorkoutRow | null>(null);
@@ -272,21 +273,43 @@ export default function WorkoutDetailScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      "Supprimer cet entrainement ?",
-      "Cette action est irréversible.",
-      [
+    showDialog({
+      title: "Supprimer cet entrainement ?",
+      message:
+        "Son historique de séances sera aussi supprimé. Cette action est irréversible.",
+      buttons: [
         { text: "Annuler", style: "cancel" },
         {
           text: "Supprimer",
           style: "destructive",
           onPress: async () => {
-            await db.runAsync("DELETE FROM workouts WHERE id = ?", workoutId);
-            router.back();
+            try {
+              // La table sessions référence workouts sans « ON DELETE
+              // CASCADE » : tant qu'il reste des séances, SQLite refuse de
+              // supprimer l'entrainement (clés étrangères activées). On
+              // supprime donc d'abord ses séances ; leurs performances
+              // partent avec elles (cascade sur session_id).
+              await db.withTransactionAsync(async () => {
+                await db.runAsync(
+                  "DELETE FROM sessions WHERE workout_id = ?",
+                  workoutId,
+                );
+                await db.runAsync(
+                  "DELETE FROM workouts WHERE id = ?",
+                  workoutId,
+                );
+              });
+              router.back();
+            } catch {
+              showDialog({
+                title: "Erreur",
+                message: "Impossible de supprimer cet entrainement.",
+              });
+            }
           },
         },
       ],
-    );
+    });
   };
 
   if (!workout) {

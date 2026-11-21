@@ -61,9 +61,9 @@ Présent sur les écrans Création, Détail, Duplication et Debug. Il contient :
 
 Absent sur l'Accueil, le Chrono et la Séance, qui affichent leur propre titre ou leur propre barre du haut.
 
-### Boîtes de dialogue système
+### Boîtes de dialogue
 
-L'appli utilise des alertes natives Android : titre, message et boutons. Elles sont listées dans les écrans qui les déclenchent.
+L'appli utilise ses propres boîtes de dialogue (`components/ui/dialog.tsx`), dans le style de la modale de sélection d'exercice : voile sombre, boîte centrée avec titre, message et boutons. L'action principale est un bouton feu, une action destructive un bouton en relief au texte rouge-orangé, et « Annuler » un simple lien en bas. Le bouton « retour » d'Android équivaut à « Annuler » (ou à « OK » s'il n'y a qu'un bouton). Elles sont listées dans les écrans qui les déclenchent.
 
 ### Clavier
 

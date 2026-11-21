@@ -20,6 +20,7 @@ import { useEffect } from "react";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { DialogProvider } from "@/components/ui/dialog";
 import { colors, fonts } from "@/constants/theme";
 import { initializeDatabase } from "../db/schema";
 
@@ -73,9 +74,12 @@ export default function RootLayout() {
         onInit={initializeDatabase}
       >
         <ThemeProvider value={navigationTheme}>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          </Stack>
+          {/* Boîtes de dialogue de l'appli (useDialog), au-dessus de tout */}
+          <DialogProvider>
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            </Stack>
+          </DialogProvider>
           {/* Icônes claires sur les barres système. Pour NavigationBar aussi,
               "light" = contenu clair (vérifié dans le code natif ; la doc
               TypeScript du module dit l'inverse). */}
