@@ -18,12 +18,11 @@ import {
 } from "@/constants/theme";
 import { useCountdownBeeps } from "@/hooks/use-countdown-beeps";
 import { useCountdownDigitStyle } from "@/hooks/use-countdown-digit-style";
+import { useIdleKeepAwake } from "@/hooks/use-idle-keep-awake";
 import { usePulse } from "@/hooks/use-pulse";
 import { useSecondCycle, useSecondsUntil } from "@/hooks/use-second-cycle";
 import { formatDurationWithHundredths } from "@/utils/format-duration";
 import { setAudioModeAsync } from "expo-audio";
-import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
-import { useFocusEffect } from "expo-router";
 import { useBottomTabBarHeight } from "expo-router/js-tabs";
 import {
   ChevronDown,
@@ -58,6 +57,8 @@ import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 
 const DEFAULT_COUNTDOWN_SECONDS = 5;
 const KEEP_AWAKE_TAG = "timer-screen";
+/** Délai sans activité avant de laisser l'écran s'éteindre (chrono arrêté) */
+const KEEP_AWAKE_IDLE_MS = 60_000;
 
 // Courbe CSS « ease-out » de l'onde du décompte
 const BEAT_EASING = Easing.bezierFn(0, 0, 0.58, 1);
@@ -412,18 +413,6 @@ export default function TimerScreen() {
   // survit aux changements d'onglet, mais disparaît quand on ferme l'appli.
   const [history, setHistory] = useState<ChronoEntry[]>([]);
 
-  // ---- Écran toujours allumé tant qu'on est sur cet onglet ----
-  // Les onglets restent montés quand on en change : un useKeepAwake() garderait
-  // le téléphone allumé même sur les autres onglets. useFocusEffect active le
-  // maintien à l'arrivée sur l'onglet, et sa fonction de nettoyage le coupe
-  // quand on le quitte.
-  useFocusEffect(() => {
-    activateKeepAwakeAsync(KEEP_AWAKE_TAG);
-    return () => {
-      deactivateKeepAwake(KEEP_AWAKE_TAG);
-    };
-  });
-
   // Champ texte (et pas un nombre) pour pouvoir l'effacer pendant la saisie
   const [countdownInput, setCountdownInput] = useState(
     DEFAULT_COUNTDOWN_SECONDS.toString(),
@@ -448,6 +437,14 @@ export default function TimerScreen() {
           ? "countdown"
           : "timing";
   const timingStartedAt = startedAt === null ? 0 : startedAt + countdownMs;
+
+  // ---- Écran allumé sur cet onglet ----
+  // Pendant le décompte et le chrono : toujours. Sinon, il se relâche après
+  // 1 min sans toucher l'écran, pour que le téléphone se verrouille seul.
+  const registerActivity = useIdleKeepAwake(KEEP_AWAKE_TAG, {
+    alwaysOn: phase === "countdown" || phase === "timing",
+    idleMs: KEEP_AWAKE_IDLE_MS,
+  });
 
   // ---- Bips du décompte : un par seconde à partir de 5, puis un autre à 0 ----
   useCountdownBeeps({
@@ -514,173 +511,173 @@ export default function TimerScreen() {
   }
 
   return (
-    <KeyboardAvoidingContainer
-      style={[styles.container, { paddingBottom: tabBarHeight + 8 }]}
-    >
-      {/* Lueur orangée derrière le cadran pendant le chrono, en fondu */}
-      {running && (
-        <Animated.View
-          pointerEvents="none"
-          style={styles.backgroundGlow}
-          entering={motion(FadeIn.duration(600))}
-          exiting={motion(FadeOut.duration(400))}
-        />
-      )}
-      <View style={[styles.header, { paddingTop: screenTop(48, insets.top) }]}>
-        <Text style={styles.title} role="heading">
-          Chrono
-        </Text>
-        <Neu
-          variant="up-sm"
-          style={styles.soundButton}
-          pressedStyle={styles.pressed}
-          onPress={() => setSoundEnabled((v) => !v)}
-          accessibilityLabel={
-            soundEnabled ? "Couper les bips" : "Activer les bips"
-          }
+    // onTouchStart reçoit aussi les touchers des éléments enfants (boutons,
+    // champ, historique) : tout appui sur la page compte comme une activité.
+    <View style={styles.touchArea} onTouchStart={registerActivity}>
+      <KeyboardAvoidingContainer
+        style={[styles.container, { paddingBottom: tabBarHeight + 8 }]}
+      >
+        {/* Lueur orangée derrière le cadran pendant le chrono, en fondu */}
+        {running && (
+          <Animated.View
+            pointerEvents="none"
+            style={styles.backgroundGlow}
+            entering={motion(FadeIn.duration(600))}
+            exiting={motion(FadeOut.duration(400))}
+          />
+        )}
+        <View
+          style={[styles.header, { paddingTop: screenTop(48, insets.top) }]}
         >
-          {soundEnabled ? (
-            <Volume2 size={22} strokeWidth={2} color={colors.tabActive} />
-          ) : (
-            <VolumeX size={22} strokeWidth={2} color={colors.textTertiary} />
-          )}
-        </Neu>
-      </View>
+          <Text style={styles.title} role="heading">
+            Chrono
+          </Text>
+          <Neu
+            variant="up-sm"
+            style={styles.soundButton}
+            pressedStyle={styles.pressed}
+            onPress={() => setSoundEnabled((v) => !v)}
+            accessibilityLabel={
+              soundEnabled ? "Couper les bips" : "Activer les bips"
+            }
+          >
+            {soundEnabled ? (
+              <Volume2 size={22} strokeWidth={2} color={colors.tabActive} />
+            ) : (
+              <VolumeX size={22} strokeWidth={2} color={colors.textTertiary} />
+            )}
+          </Neu>
+        </View>
 
-      <View style={styles.main}>
-        {/* Les blocs apparaissent en cascade, rejouée à chaque retour sur
+        <View style={styles.main}>
+          {/* Les blocs apparaissent en cascade, rejouée à chaque retour sur
             l'onglet */}
-        <RiseOnTab style={styles.dialWrapper}>
-          {phase === "countdown" && !reducedMotion && startedAt !== null && (
-            <CountdownBeat startedAt={startedAt} />
-          )}
-          <View style={styles.dial}>
-            {/* Passage décompte → chrono : l'anneau du décompte s'efface,
+          <RiseOnTab style={styles.dialWrapper}>
+            {phase === "countdown" && !reducedMotion && startedAt !== null && (
+              <CountdownBeat startedAt={startedAt} />
+            )}
+            <View style={styles.dial}>
+              {/* Passage décompte → chrono : l'anneau du décompte s'efface,
                 l'arc et la lueur du chrono arrivent en fondu */}
-            {phase === "countdown" && startedAt !== null && (
-              <Animated.View
-                style={StyleSheet.absoluteFill}
-                exiting={motion(FadeOut.duration(250))}
-              >
-                <CountdownRing startedAt={startedAt} />
-              </Animated.View>
-            )}
-            {running && (
-              <Animated.View
-                style={StyleSheet.absoluteFill}
-                entering={motion(FadeIn.duration(500))}
-                exiting={motion(FadeOut.duration(300))}
-              >
-                <DialBreath />
-                <RunningArc startedAt={timingStartedAt} />
-              </Animated.View>
-            )}
-            <View
-              style={[styles.dialInner, running && styles.dialInnerRunning]}
-            >
-              {/* Au lancement, « Décompte » et « sec » s'effacent et le
-                  chiffre grossit en s'effaçant, pendant que le chiffre du
-                  décompte apparaît à sa place */}
-              {phase === "idle" && (
-                <>
-                  <Animated.Text
-                    style={styles.dialLabel}
-                    exiting={reducedMotion ? undefined : FadeOut.duration(200)}
-                  >
-                    Décompte
-                  </Animated.Text>
-                  {/* Le chiffre en dégradé est dessiné sous un champ au texte
-                      transparent : on voit le dégradé, on tape dans le champ. */}
-                  <Animated.View
-                    style={styles.countdownField}
-                    exiting={reducedMotion ? undefined : growOut()}
-                  >
-                    <GradientText style={styles.countdownInputText}>
-                      {countdownInput}
-                    </GradientText>
-                    <TextInput
-                      style={[styles.countdownInputText, styles.countdownInput]}
-                      keyboardType="number-pad"
-                      value={countdownInput}
-                      onChangeText={(text) =>
-                        setCountdownInput(text.replace(/\D/g, "").slice(0, 3))
-                      }
-                      selectTextOnFocus
-                      cursorColor={colors.fireMid}
-                      selectionColor="rgba(255,138,31,0.35)"
-                      accessibilityLabel="Décompte en secondes"
-                    />
-                  </Animated.View>
-                  <Animated.Text
-                    style={styles.dialUnit}
-                    exiting={reducedMotion ? undefined : FadeOut.duration(200)}
-                  >
-                    sec
-                  </Animated.Text>
-                </>
-              )}
-
               {phase === "countdown" && startedAt !== null && (
-                <CountdownDisplay
-                  startedAt={startedAt}
-                  endsAt={timingStartedAt}
-                />
-              )}
-
-              {running && (
                 <Animated.View
-                  style={styles.runningContent}
-                  entering={motion(appear())}
+                  style={StyleSheet.absoluteFill}
+                  exiting={motion(FadeOut.duration(250))}
                 >
-                  <View style={styles.liveLabel}>
-                    <LiveDot />
-                    <Text style={styles.dialLabel}>En cours</Text>
-                  </View>
-                  <RunningDuration startedAt={timingStartedAt} />
+                  <CountdownRing startedAt={startedAt} />
                 </Animated.View>
               )}
-
-              {phase === "done" && finalMs !== null && (
-                <>
-                  <Text style={styles.dialLabel}>Temps</Text>
-                  <Animated.View
-                    entering={motion(pop({ from: 0.6, duration: 450 }))}
-                  >
-                    <SegmentDuration
-                      ms={finalMs}
-                      gradient={gradients.fireText}
-                    />
-                  </Animated.View>
-                </>
+              {running && (
+                <Animated.View
+                  style={StyleSheet.absoluteFill}
+                  entering={motion(FadeIn.duration(500))}
+                  exiting={motion(FadeOut.duration(300))}
+                >
+                  <DialBreath />
+                  <RunningArc startedAt={timingStartedAt} />
+                </Animated.View>
               )}
-            </View>
-          </View>
-        </RiseOnTab>
+              <View
+                style={[styles.dialInner, running && styles.dialInnerRunning]}
+              >
+                {/* Au lancement, « Décompte » et « sec » s'effacent et le
+                  chiffre grossit en s'effaçant, pendant que le chiffre du
+                  décompte apparaît à sa place */}
+                {phase === "idle" && (
+                  <>
+                    <Animated.Text
+                      style={styles.dialLabel}
+                      exiting={
+                        reducedMotion ? undefined : FadeOut.duration(200)
+                      }
+                    >
+                      Décompte
+                    </Animated.Text>
+                    {/* Le chiffre en dégradé est dessiné sous un champ au texte
+                      transparent : on voit le dégradé, on tape dans le champ. */}
+                    <Animated.View
+                      style={styles.countdownField}
+                      exiting={reducedMotion ? undefined : growOut()}
+                    >
+                      <GradientText style={styles.countdownInputText}>
+                        {countdownInput}
+                      </GradientText>
+                      <TextInput
+                        style={[
+                          styles.countdownInputText,
+                          styles.countdownInput,
+                        ]}
+                        keyboardType="number-pad"
+                        value={countdownInput}
+                        onChangeText={(text) => {
+                          // Le clavier n'est pas sur la page : taper compte
+                          // comme une activité à part
+                          registerActivity();
+                          setCountdownInput(
+                            text.replace(/\D/g, "").slice(0, 3),
+                          );
+                        }}
+                        selectTextOnFocus
+                        cursorColor={colors.fireMid}
+                        selectionColor="rgba(255,138,31,0.35)"
+                        accessibilityLabel="Décompte en secondes"
+                      />
+                    </Animated.View>
+                    <Animated.Text
+                      style={styles.dialUnit}
+                      exiting={
+                        reducedMotion ? undefined : FadeOut.duration(200)
+                      }
+                    >
+                      sec
+                    </Animated.Text>
+                  </>
+                )}
 
-        <RiseOnTab delay={70} style={styles.actionSlot}>
-          {phase === "idle" && (
-            <FireButton
-              label="Lancer le chrono"
-              onPress={handleStart}
-              icon={
-                <Play
-                  size={18}
-                  strokeWidth={2}
-                  color={colors.onFire}
-                  fill={colors.onFire}
-                />
-              }
-              style={styles.actionButton}
-              labelStyle={styles.actionLabel}
-            />
-          )}
-          {running && (
-            <Animated.View entering={motion(pop({ from: 0.6, duration: 450 }))}>
+                {phase === "countdown" && startedAt !== null && (
+                  <CountdownDisplay
+                    startedAt={startedAt}
+                    endsAt={timingStartedAt}
+                  />
+                )}
+
+                {running && (
+                  <Animated.View
+                    style={styles.runningContent}
+                    entering={motion(appear())}
+                  >
+                    <View style={styles.liveLabel}>
+                      <LiveDot />
+                      <Text style={styles.dialLabel}>En cours</Text>
+                    </View>
+                    <RunningDuration startedAt={timingStartedAt} />
+                  </Animated.View>
+                )}
+
+                {phase === "done" && finalMs !== null && (
+                  <>
+                    <Text style={styles.dialLabel}>Temps</Text>
+                    <Animated.View
+                      entering={motion(pop({ from: 0.6, duration: 450 }))}
+                    >
+                      <SegmentDuration
+                        ms={finalMs}
+                        gradient={gradients.fireText}
+                      />
+                    </Animated.View>
+                  </>
+                )}
+              </View>
+            </View>
+          </RiseOnTab>
+
+          <RiseOnTab delay={70} style={styles.actionSlot}>
+            {phase === "idle" && (
               <FireButton
-                label="Terminé"
-                onPress={handleStop}
+                label="Lancer le chrono"
+                onPress={handleStart}
                 icon={
-                  <Square
+                  <Play
                     size={18}
                     strokeWidth={2}
                     color={colors.onFire}
@@ -690,33 +687,56 @@ export default function TimerScreen() {
                 style={styles.actionButton}
                 labelStyle={styles.actionLabel}
               />
-            </Animated.View>
-          )}
-          {phase === "done" && (
-            <Animated.View entering={motion(pop({ from: 0.6, duration: 450 }))}>
-              <Neu
-                variant="up-sm"
-                surface="flat"
-                style={[styles.actionButton, styles.restartButton]}
-                pressedStyle={styles.pressed}
-                onPress={handleReset}
+            )}
+            {running && (
+              <Animated.View
+                entering={motion(pop({ from: 0.6, duration: 450 }))}
               >
-                <RotateCcw size={18} strokeWidth={2} color={colors.fireMid} />
-                <Text style={styles.restartLabel}>Recommencer</Text>
-              </Neu>
-            </Animated.View>
-          )}
-        </RiseOnTab>
+                <FireButton
+                  label="Terminé"
+                  onPress={handleStop}
+                  icon={
+                    <Square
+                      size={18}
+                      strokeWidth={2}
+                      color={colors.onFire}
+                      fill={colors.onFire}
+                    />
+                  }
+                  style={styles.actionButton}
+                  labelStyle={styles.actionLabel}
+                />
+              </Animated.View>
+            )}
+            {phase === "done" && (
+              <Animated.View
+                entering={motion(pop({ from: 0.6, duration: 450 }))}
+              >
+                <Neu
+                  variant="up-sm"
+                  surface="flat"
+                  style={[styles.actionButton, styles.restartButton]}
+                  pressedStyle={styles.pressed}
+                  onPress={handleReset}
+                >
+                  <RotateCcw size={18} strokeWidth={2} color={colors.fireMid} />
+                  <Text style={styles.restartLabel}>Recommencer</Text>
+                </Neu>
+              </Animated.View>
+            )}
+          </RiseOnTab>
 
-        <RiseOnTab delay={140} style={styles.historyWrapper}>
-          <TimerHistory entries={history} />
-        </RiseOnTab>
-      </View>
-    </KeyboardAvoidingContainer>
+          <RiseOnTab delay={140} style={styles.historyWrapper}>
+            <TimerHistory entries={history} />
+          </RiseOnTab>
+        </View>
+      </KeyboardAvoidingContainer>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  touchArea: { flex: 1 },
   container: { backgroundColor: colors.background },
   header: {
     paddingLeft: 24,
