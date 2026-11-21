@@ -123,6 +123,8 @@ function ExercisePickerContent({ onClose, onSelectExercise }: PickerProps) {
           placeholder="Rechercher un exercice..."
           value={searchText}
           onChangeText={setSearchText}
+          // Le texte saisi sert aussi de nom à l'exercice créé : on le borne
+          maxLength={60}
           onFocus={() => setSearchFocused(true)}
           onBlur={() => setSearchFocused(false)}
           autoFocus
